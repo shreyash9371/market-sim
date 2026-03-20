@@ -4,7 +4,6 @@ import { Navigate } from 'react-router-dom'
 export default function ProtectedRoute({ children }) {
   const auth = useAuthStore()
 
-  // Still checking session
   if (auth.loading) {
     return (
       <div style={{
@@ -37,9 +36,12 @@ export default function ProtectedRoute({ children }) {
     )
   }
 
-  // Not logged in → redirect to landing
   if (!auth.user) {
     return <Navigate to="/" replace />
+  }
+
+  if (!auth.approved) {
+    return <Navigate to="/pending" replace />
   }
 
   return children

@@ -1,16 +1,17 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import AuthPanel from '../components/AuthPanel'
 import { useAuthStore } from '../store/useAuthStore'
 
 export default function LandingPage() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [defaultTab, setDefaultTab] = useState('login')
+  const [searchParams] = useSearchParams()
+  const wasKicked = searchParams.get('kicked') === 'true'
   const auth = useAuthStore()
   const navigate = useNavigate()
 
-  // If already logged in go to dashboard
-  if (auth.user) {
+  if (auth.user && auth.approved) {
     navigate('/dashboard')
     return null
   }
@@ -74,8 +75,7 @@ export default function LandingPage() {
           </button>
           <button onClick={openSignup} style={{
             background: 'var(--accent-blue)',
-            border: 'none',
-            color: '#fff',
+            border: 'none', color: '#fff',
             padding: '9px 22px', borderRadius: '10px',
             fontSize: '14px', fontWeight: 700,
             cursor: 'pointer', transition: 'all 0.2s',
@@ -89,6 +89,27 @@ export default function LandingPage() {
           </button>
         </div>
       </nav>
+
+      {/* Kicked out banner */}
+      {wasKicked && (
+        <div style={{
+          background: 'rgba(239,68,68,0.08)',
+          border: '1px solid rgba(239,68,68,0.25)',
+          padding: '14px 40px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontSize: '14px',
+          color: '#ef4444',
+          fontWeight: 500,
+        }}>
+          <span>⚠️</span>
+          <span>
+            You were logged out because your account was accessed from another device.
+            Your credentials may have been shared. Please change your password.
+          </span>
+        </div>
+      )}
 
       {/* Hero */}
       <section style={{
@@ -113,11 +134,9 @@ export default function LandingPage() {
         </div>
 
         <h1 style={{
-          fontSize: '58px',
-          fontWeight: 800,
+          fontSize: '58px', fontWeight: 800,
           color: 'var(--text-primary)',
-          lineHeight: 1.1,
-          letterSpacing: '-2px',
+          lineHeight: 1.1, letterSpacing: '-2px',
           marginBottom: '24px',
         }}>
           Understand How
@@ -127,12 +146,9 @@ export default function LandingPage() {
         </h1>
 
         <p style={{
-          fontSize: '18px',
-          color: 'var(--text-secondary)',
-          lineHeight: 1.7,
-          marginBottom: '40px',
-          maxWidth: '580px',
-          margin: '0 auto 40px',
+          fontSize: '18px', color: 'var(--text-secondary)',
+          lineHeight: 1.7, marginBottom: '40px',
+          maxWidth: '580px', margin: '0 auto 40px',
         }}>
           Simulate real order flow, liquidity sweeps and institutional
           movements. Learn market mechanics by doing, not just watching.
@@ -243,7 +259,7 @@ export default function LandingPage() {
 
       {/* CTA Banner */}
       <section style={{
-        margin: '0 40px 80px',
+        margin: '0 auto 80px',
         background: 'var(--accent-blue)',
         borderRadius: '20px',
         padding: '60px 40px',
@@ -254,8 +270,7 @@ export default function LandingPage() {
       }}>
         <h2 style={{
           fontSize: '36px', fontWeight: 800,
-          color: '#fff', marginBottom: '16px',
-          letterSpacing: '-1px',
+          color: '#fff', marginBottom: '16px', letterSpacing: '-1px',
         }}>
           Start simulating for free
         </h2>
@@ -292,7 +307,6 @@ export default function LandingPage() {
         © 2025 MktSim · Built for traders who want to understand markets deeply
       </footer>
 
-      {/* Auth Panel */}
       <AuthPanel
         open={panelOpen}
         onClose={() => setPanelOpen(false)}
