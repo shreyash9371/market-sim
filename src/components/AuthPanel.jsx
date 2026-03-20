@@ -339,7 +339,7 @@ export default function AuthPanel({ open, onClose, defaultTab = 'login' }) {
                   <label style={labelStyle}>First Name</label>
                   <input
                     type="text" required
-                    placeholder="Shreyash"
+                    placeholder=""
                     value={firstName}
                     onChange={e => setFirstName(e.target.value)}
                     style={inputStyle}
@@ -351,7 +351,7 @@ export default function AuthPanel({ open, onClose, defaultTab = 'login' }) {
                   <label style={labelStyle}>Last Name</label>
                   <input
                     type="text" required
-                    placeholder="Sharma"
+                    placeholder=""
                     value={lastName}
                     onChange={e => setLastName(e.target.value)}
                     style={inputStyle}
