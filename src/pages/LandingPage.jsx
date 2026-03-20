@@ -8,6 +8,7 @@ export default function LandingPage() {
   const [defaultTab, setDefaultTab] = useState('login')
   const [searchParams] = useSearchParams()
   const wasKicked = searchParams.get('kicked') === 'true'
+  const hasError = searchParams.get('error') === 'confirmation_failed'
   const auth = useAuthStore()
   const navigate = useNavigate()
 
@@ -110,6 +111,24 @@ export default function LandingPage() {
           </span>
         </div>
       )}
+    {hasError && (
+        <div style={{
+            background: 'rgba(239,68,68,0.08)',
+            border: '1px solid rgba(239,68,68,0.25)',
+            padding: '14px 40px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '14px',
+            color: '#ef4444',
+            fontWeight: 500,
+    }}>
+        <span>⚠️</span>
+        <span>
+        Email confirmation failed or link expired. Please sign up again or contact support.
+        </span>
+    </div>
+    )}
 
       {/* Hero */}
       <section style={{
@@ -304,7 +323,7 @@ export default function LandingPage() {
         fontSize: '13px',
         color: 'var(--text-dim)',
       }}>
-        © 2025 MktSim · Built for traders who want to understand markets deeply
+        © 2026 MktSim · Built for traders who want to understand markets deeply
       </footer>
 
       <AuthPanel

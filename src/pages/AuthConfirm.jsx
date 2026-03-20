@@ -6,13 +6,50 @@ export default function AuthConfirm() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    const handleConfirm = async () => {
+      // Get the token from the URL hash or query params
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const queryParams = new URLSearchParams(window.location.search)
+
+      const accessToken = hashParams.get('access_token') || queryParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token') || queryParams.get('refresh_token')
+      const tokenHash = queryParams.get('token_hash')
+      const type = queryParams.get('type') || hashParams.get('type')
+
+      if (accessToken && refreshToken) {
+        // Set the session directly
+        await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        })
+        navigate('/dashboard')
+        return
+      }
+
+      if (tokenHash && type) {
+        // Verify OTP token
+        const { error } = await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: type,
+        })
+        if (error) {
+          navigate('/?error=confirmation_failed')
+        } else {
+          navigate('/dashboard')
+        }
+        return
+      }
+
+      // Fallback — check if already logged in
+      const { data } = await supabase.auth.getSession()
       if (data.session) {
         navigate('/dashboard')
       } else {
-        navigate('/')
+        navigate('/?error=confirmation_failed')
       }
-    })
+    }
+
+    handleConfirm()
   }, [])
 
   return (
