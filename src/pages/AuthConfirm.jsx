@@ -7,7 +7,6 @@ export default function AuthConfirm() {
 
   useEffect(() => {
     const handleConfirm = async () => {
-      // Get the token from the URL hash or query params
       const hashParams = new URLSearchParams(window.location.hash.substring(1))
       const queryParams = new URLSearchParams(window.location.search)
 
@@ -17,21 +16,13 @@ export default function AuthConfirm() {
       const type = queryParams.get('type') || hashParams.get('type')
 
       if (accessToken && refreshToken) {
-        // Set the session directly
-        await supabase.auth.setSession({
-          access_token: accessToken,
-          refresh_token: refreshToken,
-        })
+        await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
         navigate('/dashboard')
         return
       }
 
       if (tokenHash && type) {
-        // Verify OTP token
-        const { error } = await supabase.auth.verifyOtp({
-          token_hash: tokenHash,
-          type: type,
-        })
+        const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type })
         if (error) {
           navigate('/?error=confirmation_failed')
         } else {
@@ -40,12 +31,11 @@ export default function AuthConfirm() {
         return
       }
 
-      // Fallback — check if already logged in
       const { data } = await supabase.auth.getSession()
       if (data.session) {
         navigate('/dashboard')
       } else {
-        navigate('/?error=confirmation_failed')
+        navigate('/')
       }
     }
 
@@ -76,9 +66,7 @@ export default function AuthConfirm() {
       }}>
         Confirming your account...
       </div>
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg) } }
-      `}</style>
+      <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </div>
   )
 }

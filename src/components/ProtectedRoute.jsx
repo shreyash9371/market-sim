@@ -1,10 +1,45 @@
+import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
 import { Navigate } from 'react-router-dom'
+import { supabase } from '../utils/supabase'
 
 export default function ProtectedRoute({ children }) {
   const auth = useAuthStore()
+  const [checking, setChecking] = useState(true)
+  const [approved, setApproved] = useState(false)
+  const [hasUser, setHasUser] = useState(false)
 
-  if (auth.loading) {
+  useEffect(() => {
+    async function check() {
+      const { data } = await supabase.auth.getSession()
+      const user = data.session?.user ?? null
+
+      if (!user) {
+        setChecking(false)
+        return
+      }
+
+      setHasUser(true)
+
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('approved')
+          .eq('id', user.id)
+          .single()
+
+        setApproved(profile?.approved ?? false)
+      } catch (e) {
+        setApproved(false)
+      }
+
+      setChecking(false)
+    }
+
+    check()
+  }, [])
+
+  if (checking) {
     return (
       <div style={{
         height: '100vh',
@@ -36,11 +71,11 @@ export default function ProtectedRoute({ children }) {
     )
   }
 
-  if (!auth.user) {
+  if (!hasUser) {
     return <Navigate to="/" replace />
   }
 
-  if (!auth.approved) {
+  if (!approved) {
     return <Navigate to="/pending" replace />
   }
 

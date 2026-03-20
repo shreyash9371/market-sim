@@ -38,19 +38,33 @@ export default function AuthPanel({ open, onClose, defaultTab = 'login' }) {
   }
 
   async function handleLogin(e) {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
-    const { error } = await auth.signIn({ email: loginEmail, password: loginPassword })
-    setLoading(false)
-    if (error) {
-      setError(error.message)
-    } else {
-      onClose()
-      navigate('/dashboard')
-    }
+  e.preventDefault()
+  setError('')
+  setLoading(true)
+
+  const { data, error } = await auth.signIn({
+    email: loginEmail,
+    password: loginPassword,
+  })
+
+  setLoading(false)
+
+  if (error) {
+    setError(error.message)
+    return
   }
 
+  // Manually check approval and redirect
+  if (data?.user) {
+    const approved = await auth.refreshApproval()
+    onClose()
+    if (approved) {
+      navigate('/dashboard')
+    } else {
+      navigate('/pending')
+    }
+  }
+}
   async function handleSignup(e) {
     e.preventDefault()
     setError('')
