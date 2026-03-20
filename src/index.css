@@ -9,7 +9,6 @@
   --bg-hover: #eef2f7;
   --border: #e2e8f0;
   --border-bright: #cbd5e1;
-  --accent-green: #0fa d6e;
   --accent-green: #10b981;
   --accent-red: #ef4444;
   --accent-blue: #3b82f6;
@@ -25,12 +24,23 @@
   --font-mono: 'DM Mono', monospace;
 }
 
-html, body, #root {
+html {
   height: 100%;
-  width: 100%;
+}
+
+body {
+  min-height: 100%;
   background: var(--bg-base);
   color: var(--text-primary);
   font-family: var(--font-sans);
+}
+
+#root {
+  min-height: 100%;
+}
+
+.simulator-root {
+  height: 100vh;
   overflow: hidden;
 }
 

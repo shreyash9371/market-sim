@@ -23,18 +23,16 @@ export default function BasicSimulator() {
   }
 
   return (
-    <div style={{
+    <div className="simulator-root" style={{
       display: 'flex',
       flexDirection: 'column',
-      height: '100vh',
       width: '100vw',
-      overflow: 'hidden',
       background: 'var(--bg-base)',
       padding: '12px',
       gap: '12px',
     }}>
 
-      {/* Mini nav bar above TopBar */}
+      {/* Mini nav bar */}
       <div style={{
         display: 'flex',
         alignItems: 'center',
