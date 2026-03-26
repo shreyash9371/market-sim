@@ -27,9 +27,10 @@ const TOOLS = [
     title: 'Trade Journal',
     description: 'Log every trade with full context. Track your R, win rate, and edge over time with automatic statistics.',
     icon: '📓',
-    tag: 'Coming Soon',
-    tagColor: '#f59e0b',
-    available: false,
+    tag: 'Journal',
+    tagColor: '#3b82f6',
+    available: true,
+    route: '/tools/journal',
   },
   {
     id: 'institutional-replayer',

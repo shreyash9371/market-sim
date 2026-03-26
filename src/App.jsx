@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import Dashboard from './pages/Dashboard'
 import BasicSimulator from './pages/tools/BasicSimulator'
+import JournalDashboard from './pages/tools/journal/JournalDashboard'
 import AuthConfirm from './pages/AuthConfirm'
 import PendingApproval from './pages/PendingApproval'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -22,6 +23,11 @@ export default function App() {
         <Route path="/tools/basic-simulator" element={
           <ProtectedRoute>
             <BasicSimulator />
+          </ProtectedRoute>
+        } />
+        <Route path="/tools/journal" element={
+          <ProtectedRoute>
+            <JournalDashboard />
           </ProtectedRoute>
         } />
         <Route path="*" element={<Navigate to="/" />} />
