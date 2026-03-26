@@ -255,6 +255,7 @@ export default function JournalDashboard() {
   const [propMode, setPropMode] = useState(false)
   const [tradeToDelete, setTradeToDelete] = useState(null)
   const [skipDeleteConfirm, setSkipDeleteConfirm] = useState(false)
+  const [editingTradeId, setEditingTradeId] = useState(null)
 
   // AI Chat State
   const [chatInput, setChatInput] = useState('')
@@ -351,8 +352,29 @@ ${JSON.stringify(trades.map(t => {
     setForm(f => ({ ...f, [field]: val }))
   }
 
-  function openModal() {
-    setForm({ ...emptyForm, date: today() })
+  function openModal(trade = null) {
+    if (trade) {
+      setForm({
+        pair: trade.pair,
+        dir: trade.dir,
+        date: trade.date,
+        session: trade.session || '',
+        entryTime: trade.entryTime || '',
+        exitTime: trade.exitTime || '',
+        entry: trade.entry.toString(),
+        exit: trade.exit ? trade.exit.toString() : '',
+        sl: trade.sl.toString(),
+        tp: trade.tp.toString(),
+        lots: trade.lots.toString(),
+        pipval: trade.pipval.toString(),
+        emotion: trade.emotion || '',
+        notes: trade.notes || '',
+      })
+      setEditingTradeId(trade.id)
+    } else {
+      setForm({ ...emptyForm, date: today() })
+      setEditingTradeId(null)
+    }
     setShowModal(true)
   }
 
@@ -377,20 +399,39 @@ ${JSON.stringify(trades.map(t => {
     newTrade['entryTime'] = form.entryTime || null
     newTrade['exitTime'] = form.exitTime || null
 
-    const { data, error } = await supabase
-      .from('trades')
-      .insert([newTrade])
-      .select()
-      .single()
+    if (editingTradeId) {
+      const { data, error } = await supabase
+        .from('trades')
+        .update(newTrade)
+        .eq('id', editingTradeId)
+        .select()
+        .single()
 
-    if (error) {
-      console.error(error)
-      alert('Error saving trade: ' + error.message)
-      return
+      if (error) {
+        console.error(error)
+        alert('Error updating trade: ' + error.message)
+        return
+      }
+
+      setTrades(trades.map(t => t.id === editingTradeId ? data : t))
+    } else {
+      const { data, error } = await supabase
+        .from('trades')
+        .insert([newTrade])
+        .select()
+        .single()
+
+      if (error) {
+        console.error(error)
+        alert('Error saving trade: ' + error.message)
+        return
+      }
+
+      setTrades([...trades, data])
     }
 
-    setTrades([...trades, data])
     setShowModal(false)
+    setEditingTradeId(null)
   }
 
   function handleDeleteClick(id) {
@@ -860,19 +901,34 @@ ${JSON.stringify(trades.map(t => {
                               {pnlVal === null ? 'Open' : `${pnlVal >= 0 ? '+' : ''}$${pnlVal.toFixed(2)}`}
                             </td>
                             <td style={{ padding: '14px 20px', textAlign: 'right' }}>
-                              <button
-                                onClick={() => handleDeleteClick(t.id)}
-                                style={{
-                                  background: 'transparent', border: 'none', cursor: 'pointer',
-                                  fontSize: '14px', color: 'var(--text-dim)', padding: '6px',
-                                  borderRadius: '6px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                                }}
-                                title="Delete Trade"
-                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-red)'; e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
-                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.background = 'transparent'; }}
-                              >
-                                🗑️
-                              </button>
+                              <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                <button
+                                  onClick={() => openModal(t)}
+                                  style={{
+                                    background: 'transparent', border: 'none', cursor: 'pointer',
+                                    fontSize: '16px', color: 'var(--text-dim)', padding: '6px',
+                                    borderRadius: '6px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                  }}
+                                  title="Edit Trade"
+                                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-blue)'; e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.background = 'transparent'; }}
+                                >
+                                  ✏️
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteClick(t.id)}
+                                  style={{
+                                    background: 'transparent', border: 'none', cursor: 'pointer',
+                                    fontSize: '16px', color: 'var(--accent-red)', padding: '6px',
+                                    borderRadius: '6px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                  }}
+                                  title="Delete Trade"
+                                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                                >
+                                  🗑️
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         )
@@ -1065,8 +1121,12 @@ ${JSON.stringify(trades.map(t => {
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
               <div>
-                <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)' }}>Log New Trade</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '2px' }}>Fill in your trade details below</div>
+                <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  {editingTradeId ? 'Edit Trade' : 'Log New Trade'}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '2px' }}>
+                  {editingTradeId ? 'Modify your trade details' : 'Fill in your trade details below'}
+                </div>
               </div>
               <button
                 onClick={() => setShowModal(false)}
