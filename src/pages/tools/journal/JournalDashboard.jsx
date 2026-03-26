@@ -599,7 +599,7 @@ ${JSON.stringify(trades.map(t => {
           >
             ⚡ Prop Firm Mode{propMode ? ': ON' : ''}
           </button>
-          <Btn primary onClick={openModal}>+ Log Trade</Btn>
+          <Btn primary onClick={() => openModal()}>+ Log Trade</Btn>
         </div>
       </nav>
 
