@@ -6,25 +6,44 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 // ── HELPERS ───────────────────────────────────────────────────
-function isJpy(pair) {
-  return ['USDJPY', 'GBPJPY', 'EURJPY', 'AUDJPY', 'CADJPY'].includes(pair)
+function getContractSize(pair) {
+  const p = pair.toUpperCase()
+  if (p.includes('JPY')) return 100000 
+  if (p.includes('XAU')) return 100 // 1 lot = 100 oz
+  if (p.includes('XAG')) return 5000 // 1 lot = 5000 oz
+  if (['US30', 'NAS100', 'SPX500', 'GER40', 'DAX'].includes(p)) return 10 // typical mini/micro contract
+  if (['BTCUSD', 'ETHUSD', 'SOLUSD'].includes(p)) return 1 // 1 lot = 1 coin
+  return 100000 // standard forex
 }
+
+function getPipMultiplier(pair) {
+  const p = pair.toUpperCase()
+  if (p.includes('JPY')) return 100
+  if (p.includes('XAU') || p.includes('XAG')) return 10 // $1 move = 10 pips
+  if (['US30', 'NAS100', 'SPX500', 'BTCUSD', 'ETHUSD'].includes(p)) return 1
+  return 10000
+}
+
 function calcPnl(t) {
   if (!t.exit) return null
-  const mult = isJpy(t.pair) ? 100 : 10000
-  const pips = t.dir === 'long'
-    ? (t.exit - t.entry) * mult
-    : (t.entry - t.exit) * mult
+  const size = t.pipval ? parseFloat(t.pipval) : getContractSize(t.pair)
+  const diff = t.dir === 'long' ? (t.exit - t.entry) : (t.entry - t.exit)
+  const usd = diff * t.lots * size
+  
+  const mult = getPipMultiplier(t.pair)
+  const pips = diff * mult
+
   return {
     pips: parseFloat(pips.toFixed(1)),
-    usd: parseFloat((pips * (t.pipval || 1)).toFixed(2)),
+    usd: parseFloat(usd.toFixed(2)),
   }
 }
+
 function calcRR(t) {
-  const mult = isJpy(t.pair) ? 100 : 10000
-  const sl = Math.abs(t.entry - t.sl) * mult
-  const tp = Math.abs(t.tp - t.entry) * mult
-  return sl ? tp / sl : 0
+  if (!t.sl || !t.tp || t.sl === t.entry) return 0
+  const risk = Math.abs(t.entry - t.sl)
+  const reward = Math.abs(t.tp - t.entry)
+  return parseFloat((reward / risk).toFixed(2))
 }
 function today() {
   return new Date().toISOString().split('T')[0]
