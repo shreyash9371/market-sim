@@ -16,6 +16,9 @@ export function generateOrderBook() {
   return { asks, bids, mid }
 }
 
+let trend = 0
+let trendPhase = 0
+
 export function generateOrders(orderBook) {
   const bids = orderBook?.bids || []
   const asks = orderBook?.asks || []
@@ -24,10 +27,16 @@ export function generateOrders(orderBook) {
   const bestBid = bids[0].price   // highest bid
   const bestAsk = asks[0].price   // lowest ask
 
+  // Create a macroscopic cyclical trend (sine wave) + random noise
+  trendPhase += 0.05
+  trend = Math.sin(trendPhase) * 0.4 + (Math.random() - 0.5) * 0.2
+  // Ensure we still sweep but don't strictly peg completely identically
+  const buyProb = Math.max(0.1, Math.min(0.9, 0.5 + trend))
+
   return Array.from({ length: 10 }, (_, i) => {
     // Randomly pick type and side
-    const type = Math.random() > 0.4 ? 'MARKET' : 'LIMIT'
-    const side = Math.random() > 0.5 ? 'BUY' : 'SELL'
+    const type = Math.random() > 0.35 ? 'MARKET' : 'LIMIT'
+    const side = Math.random() < buyProb ? 'BUY' : 'SELL'
 
     let price = null
     if (type === 'LIMIT') {
@@ -43,13 +52,17 @@ export function generateOrders(orderBook) {
     }
 
     const qty = Math.floor(Math.random() * 80) + 10
+    
+    // Aggressive market sweeps break through price walls ensuring volatility runs
+    const isAggressive = type === 'MARKET' && Math.random() > 0.8
+    const finalQty = isAggressive ? qty * 4 : qty
 
     return {
       id: `ORD-${Date.now()}-${i}`,
       type,
       side,
       price,
-      qty,
+      qty: finalQty,
       status: 'PENDING',
     }
   })

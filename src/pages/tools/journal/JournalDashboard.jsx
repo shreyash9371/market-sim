@@ -1,63 +1,25 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
+import confetti from 'canvas-confetti'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../../store/useAuthStore'
 import { supabase } from '../../../utils/supabase'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import {
+  calcPnl,
+  calcRR,
+  getTradeResult,
+  calcDuration,
+  SESSIONS,
+  DAYS,
+  DOW,
+} from '../../../utils/tradeMetrics'
+import TradingStatistics from './TradingStatistics'
 
 // ── HELPERS ───────────────────────────────────────────────────
-function getContractSize(pair) {
-  const p = pair.toUpperCase()
-  if (p.includes('JPY')) return 100000 
-  if (p.includes('XAU')) return 100 // 1 lot = 100 oz
-  if (p.includes('XAG')) return 5000 // 1 lot = 5000 oz
-  if (['US30', 'NAS100', 'SPX500', 'GER40', 'DAX'].includes(p)) return 10 // typical mini/micro contract
-  if (['BTCUSD', 'ETHUSD', 'SOLUSD'].includes(p)) return 1 // 1 lot = 1 coin
-  return 100000 // standard forex
-}
-
-function getPipMultiplier(pair) {
-  const p = pair.toUpperCase()
-  if (p.includes('JPY')) return 100
-  if (p.includes('XAU') || p.includes('XAG')) return 10 // $1 move = 10 pips
-  if (['US30', 'NAS100', 'SPX500', 'BTCUSD', 'ETHUSD'].includes(p)) return 1
-  return 10000
-}
-
-function calcPnl(t) {
-  if (!t.exit) return null
-  const size = t.pipval ? parseFloat(t.pipval) : getContractSize(t.pair)
-  const diff = t.dir === 'long' ? (t.exit - t.entry) : (t.entry - t.exit)
-  const usd = diff * t.lots * size
-  
-  const mult = getPipMultiplier(t.pair)
-  const pips = diff * mult
-
-  return {
-    pips: parseFloat(pips.toFixed(1)),
-    usd: parseFloat(usd.toFixed(2)),
-  }
-}
-
-function calcRR(t) {
-  if (!t.sl || !t.tp || t.sl === t.entry) return 0
-  const risk = Math.abs(t.entry - t.sl)
-  const reward = Math.abs(t.tp - t.entry)
-  return parseFloat((reward / risk).toFixed(2))
-}
 function today() {
   return new Date().toISOString().split('T')[0]
 }
-
-const SESSIONS = [
-  { key: 'new_york', label: 'New York', color: 'var(--accent-blue)' },
-  { key: 'london', label: 'London', color: 'var(--accent-green)' },
-  { key: 'asian', label: 'Asian', color: 'var(--accent-yellow)' },
-  { key: 'overlap', label: 'London / NY Overlap', color: 'var(--accent-red)' },
-]
-
-const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri']
-const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 const ASSETS = [
   'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
@@ -75,19 +37,61 @@ const ASSETS = [
 const emptyForm = {
   pair: '', dir: 'long', date: '', session: '',
   entry: '', exit: '', sl: '', tp: '',
-  lots: '0.10', pipval: '1.00', entryTime: '', exitTime: '', emotion: '', notes: '',
+  lots: '0.10', pipval: '1.00', entryTime: '', exitTime: '', emotion: '', notes: '', images: [],
 }
 
-function calcDuration(t) {
-  if (!t.entryTime || !t.exitTime) return '—'
-  const [eh, em] = t.entryTime.split(':').map(Number)
-  const [xh, xm] = t.exitTime.split(':').map(Number)
-  let diff = (xh * 60 + xm) - (eh * 60 + em)
-  if (diff < 0) diff += 24 * 60 // crossed midnight
-  const hours = Math.floor(diff / 60)
-  const mins = diff % 60
-  return `${hours}h ${mins}m`
+const MOTIVATIONAL_NOTES = [
+  "Discipline is the bridge between goals and accomplishment. Great execution!",
+  "The market is a device for transferring money from the impatient to the patient.",
+  "Focus on the process, not the outcome. You're building an elite mindset.",
+  "Every trade is a lesson. Whether win or loss, your discipline is your true edge.",
+  "Success in trading is not about being right, but about being disciplined.",
+  "Trust your edge. The statistics will take care of the rest.",
+  "Professional traders trade for the process, amateurs trade for the money.",
+  "A losing trade with good discipline is a better outcome than a winning trade with bad habits."
+]
+
+function triggerCelebration() {
+  console.info("🎉 Triggering profitable trade celebration!");
+  const duration = 2000; // 2 seconds
+  const end = Date.now() + duration;
+  const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444'];
+
+  (function frame() {
+    // Flower configuration: Launching from sides and top
+    // Increased particleCount for better visibility
+    confetti({
+      particleCount: 15,
+      angle: 60,
+      spread: 55,
+      origin: { x: 0, y: 0.6 },
+      colors: colors,
+      zIndex: 1000000
+    });
+    confetti({
+      particleCount: 15,
+      angle: 120,
+      spread: 55,
+      origin: { x: 1, y: 0.6 },
+      colors: colors,
+      zIndex: 1000000
+    });
+    confetti({
+      particleCount: 15,
+      angle: 270,
+      spread: 90,
+      origin: { x: 0.5, y: -0.1 },
+      colors: colors,
+      zIndex: 1000000
+    });
+
+    if (Date.now() < end) {
+      requestAnimationFrame(frame);
+    }
+  }());
 }
+
+
 
 // ── SMALL REUSABLE PIECES ─────────────────────────────────────
 function Card({ children, style = {} }) {
@@ -118,21 +122,25 @@ function CardLabel({ children }) {
   )
 }
 
-function StatPill({ label, value, sub, color }) {
+function StatPill({ label, value, sub, color, children }) {
   return (
     <div style={{
       background: 'var(--bg-card)',
       borderRadius: '16px',
       border: '1px solid var(--border)',
       padding: '16px 20px',
+      position: 'relative'
     }}>
-      <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.6px', marginBottom: '8px' }}>
-        {label}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>
+          {label}
+        </div>
+        {children}
       </div>
       <div style={{ fontSize: '22px', fontWeight: 700, color, fontFamily: 'var(--font-sans)', lineHeight: 1 }}>
         {value}
       </div>
-      {sub && <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '5px', fontFamily: 'var(--font-sans)' }}>{sub}</div>}
+      {sub && <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '5px', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>{sub}</div>}
     </div>
   )
 }
@@ -199,6 +207,98 @@ function SidebarItem({ label, active, onClick }) {
   )
 }
 
+function CustomSelect({ label, value, onChange, options, placeholder = "— Select —" }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const clickOut = (e) => { if (ref.current && !ref.current.contains(e.target)) setIsOpen(false) }
+    document.addEventListener('mousedown', clickOut)
+    return () => document.removeEventListener('mousedown', clickOut)
+  }, [])
+
+  const selectedOpt = options.find(o => o.value === value)
+
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          ...inputStyle,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: 'var(--bg-panel)',
+          borderColor: isOpen ? 'var(--accent-blue)' : 'var(--border)',
+          boxShadow: isOpen ? '0 0 0 3px rgba(59,130,246,0.1)' : 'none',
+        }}
+      >
+        <span style={{ color: selectedOpt ? 'var(--text-primary)' : 'var(--text-dim)', fontWeight: selectedOpt ? 600 : 500 }}>
+          {selectedOpt ? selectedOpt.label : placeholder}
+        </span>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', color: 'var(--text-dim)' }}>
+          <polyline points="6 9 12 15 18 9"></polyline>
+        </svg>
+      </div>
+
+      {isOpen && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0,
+          background: 'var(--bg-panel)', border: '1px solid var(--border)',
+          borderRadius: '14px', marginTop: '8px', zIndex: 1000,
+          padding: '6px', boxShadow: '0 10px 25px rgba(0,0,0,0.12)',
+          maxHeight: '240px', overflowY: 'auto'
+        }} className="no-scrollbar">
+          {options.map(opt => (
+            <div
+              key={opt.value}
+              onClick={() => { onChange(opt.value); setIsOpen(false); }}
+              style={{
+                padding: '10px 12px', borderRadius: '10px', cursor: 'pointer',
+                fontSize: '13px', fontWeight: value === opt.value ? 700 : 500,
+                color: value === opt.value ? 'var(--accent-blue)' : 'var(--text-primary)',
+                background: value === opt.value ? 'rgba(59,130,246,0.08)' : 'transparent',
+                transition: 'all 0.1s', display: 'flex', alignItems: 'center', gap: '10px'
+              }}
+              onMouseEnter={e => { if (value !== opt.value) e.currentTarget.style.background = 'var(--bg-hover)' }}
+              onMouseLeave={e => { if (value !== opt.value) e.currentTarget.style.background = 'transparent' }}
+            >
+              {opt.icon && <span style={{ fontSize: '16px' }}>{opt.icon}</span>}
+              {opt.label}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StyledInput({ icon, ...props }) {
+  const [focused, setFocused] = useState(false)
+  return (
+    <div style={{ position: 'relative', width: '100%' }}>
+      <input
+        {...props}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        style={{
+          ...inputStyle,
+          background: 'var(--bg-panel)',
+          paddingRight: icon ? '40px' : '13px',
+          borderColor: focused ? 'var(--accent-blue)' : 'var(--border)',
+          boxShadow: focused ? '0 0 0 3px rgba(59,130,246,0.1)' : 'none',
+        }}
+      />
+      {icon && (
+        <div style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)', pointerEvents: 'none', display: 'flex' }}>
+          {icon}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function AssetAutocomplete({ value, onChange }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState(value || '')
@@ -207,31 +307,180 @@ function AssetAutocomplete({ value, onChange }) {
 
   return (
     <div style={{ position: 'relative' }}>
-      <input
-        style={inputStyle}
-        value={query}
-        onChange={e => { setQuery(e.target.value.toUpperCase()); setOpen(true); onChange(e.target.value.toUpperCase()); }}
-        onFocus={() => setOpen(true)}
-        onBlur={() => setTimeout(() => setOpen(false), 200)}
+      <StyledInput
         placeholder="e.g. XAUUSD"
+        value={query}
+        onChange={e => {
+          const val = e.target.value.toUpperCase();
+          setQuery(val);
+          setOpen(true);
+          onChange(val);
+        }}
+        onFocus={() => setOpen(true)}
+        icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>}
       />
       {open && filtered.length > 0 && (
         <div style={{
           position: 'absolute', top: '100%', left: 0, right: 0,
           background: 'var(--bg-panel)', border: '1px solid var(--border)',
-          borderRadius: '12px', marginTop: '4px', zIndex: 1000,
-          maxHeight: '160px', overflowY: 'auto',
-          boxShadow: 'var(--shadow-md)'
-        }}>
+          borderRadius: '14px', marginTop: '8px', zIndex: 1000,
+          boxShadow: '0 10px 25px rgba(0,0,0,0.12)', maxHeight: '200px', overflowY: 'auto',
+          padding: '6px'
+        }} className="no-scrollbar">
           {filtered.map(a => (
             <div
               key={a}
-              onMouseDown={() => { onChange(a); setQuery(a); setOpen(false); }}
-              style={{ padding: '8px 12px', cursor: 'pointer', fontSize: '13px', color: 'var(--text-primary)', borderBottom: '1px solid var(--border)' }}
-              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-base)'}
+              onMouseDown={() => {
+                onChange(a)
+                setQuery(a)
+                setOpen(false)
+              }}
+              style={{
+                padding: '10px 14px', borderRadius: '10px', cursor: 'pointer',
+                fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)',
+                transition: 'all 0.1s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-            >{a}</div>
+            >
+              {a}
+            </div>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CustomDatePicker({ value, onChange, placeholder = "Select Date" }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [viewDate, setViewDate] = useState(value ? new Date(value + 'T12:00:00') : new Date())
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const clickOut = (e) => { if (ref.current && !ref.current.contains(e.target)) setIsOpen(false) }
+    document.addEventListener('mousedown', clickOut)
+    return () => document.removeEventListener('mousedown', clickOut)
+  }, [])
+
+  const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate()
+  const startDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1).getDay()
+
+  const handleDaySelect = (d) => {
+    const month = String(viewDate.getMonth() + 1).padStart(2, '0')
+    const day = String(d).padStart(2, '0')
+    const newVal = `${viewDate.getFullYear()}-${month}-${day}`
+    onChange(newVal)
+    setIsOpen(false)
+  }
+
+  const changeMonth = (offset) => {
+    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + offset, 1))
+  }
+
+  const displayDate = value ? (() => {
+    const [y, m, d] = value.split('-')
+    return `${d}-${m}-${y}`
+  })() : placeholder
+
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+      <div onClick={() => setIsOpen(!isOpen)} style={{ ...inputStyle, background: 'var(--bg-panel)', borderColor: isOpen ? 'var(--accent-blue)' : 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+        <span style={{ fontSize: '13px', color: value ? 'var(--text-primary)' : 'var(--text-dim)', fontWeight: value ? 600 : 500 }}>{displayDate}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+      </div>
+
+      {isOpen && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', boxShadow: 'var(--shadow-md)', zIndex: 1000, width: '280px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <button onClick={() => changeMonth(-1)} style={{ background: 'var(--bg-base)', border: 'none', borderRadius: '8px', padding: '4px 8px', cursor: 'pointer', color: 'var(--text-primary)' }}>❮</button>
+            <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)' }}>
+              {viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })}
+            </div>
+            <button onClick={() => changeMonth(1)} style={{ background: 'var(--bg-base)', border: 'none', borderRadius: '8px', padding: '4px 8px', cursor: 'pointer', color: 'var(--text-primary)' }}>❯</button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px', textAlign: 'center' }}>
+            {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+              <div key={d} style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-dim)', textTransform: 'uppercase', marginBottom: '8px' }}>{d}</div>
+            ))}
+            {Array.from({ length: startDay }).map((_, i) => <div key={`empty-${i}`} />)}
+            {Array.from({ length: daysInMonth(viewDate.getFullYear(), viewDate.getMonth()) }).map((_, i) => {
+              const d = i + 1
+              const month = String(viewDate.getMonth() + 1).padStart(2, '0')
+              const dayStr = String(d).padStart(2, '0')
+              const isSelected = value === `${viewDate.getFullYear()}-${month}-${dayStr}`
+              return (
+                <div key={d}
+                  onClick={() => handleDaySelect(d)}
+                  style={{
+                    padding: '8px 0', fontSize: '12px', fontWeight: 600, borderRadius: '8px', cursor: 'pointer',
+                    background: isSelected ? 'var(--accent-blue)' : 'transparent',
+                    color: isSelected ? '#fff' : 'var(--text-primary)',
+                    transition: 'all 0.1s'
+                  }}
+                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--bg-hover)' }}
+                  onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
+                >{d}</div>
+              )
+            })}
+          </div>
+          <button onClick={() => { onChange(today()); setIsOpen(false); }} style={{ width: '100%', marginTop: '16px', border: '1px solid var(--border)', background: 'var(--bg-base)', padding: '6px', borderRadius: '8px', fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', cursor: 'pointer' }}>Go to Today</button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CustomTimePicker({ value, onChange, placeholder = "--:--" }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const clickOut = (e) => { if (ref.current && !ref.current.contains(e.target)) setIsOpen(false) }
+    document.addEventListener('mousedown', clickOut)
+    return () => document.removeEventListener('mousedown', clickOut)
+  }, [])
+
+  const currentH = value ? value.split(':')[0] : '12'
+  const currentM = value ? value.split(':')[1] : '00'
+
+  const selectH = (h) => {
+    const newH = String(h).padStart(2, '0')
+    onChange(`${newH}:${currentM}`)
+  }
+
+  const selectM = (m) => {
+    const newM = String(m).padStart(2, '0')
+    onChange(`${currentH}:${newM}`)
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative', width: '100%' }}>
+      <div onClick={() => setIsOpen(!isOpen)} style={{ ...inputStyle, background: 'var(--bg-panel)', borderColor: isOpen ? 'var(--accent-blue)' : 'var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+        <span style={{ fontSize: '13px', color: value ? 'var(--text-primary)' : 'var(--text-dim)', fontWeight: value ? 600 : 500 }}>{value || placeholder}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-dim)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+      </div>
+
+      {isOpen && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '16px', display: 'flex', overflow: 'hidden', boxShadow: 'var(--shadow-md)', zIndex: 1000, width: '180px' }}>
+          <div className="no-scrollbar" style={{ flex: 1, maxHeight: '200px', overflowY: 'auto', padding: '6px', borderRight: '1px solid var(--border)' }}>
+            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-dim)', textAlign: 'center', marginBottom: '4px', textTransform: 'uppercase' }}>HH</div>
+            {Array.from({ length: 24 }).map((_, i) => (
+              <div key={i} onClick={() => selectH(i)} style={{ padding: '8px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', textAlign: 'center', cursor: 'pointer', background: currentH === String(i).padStart(2, '0') ? 'var(--accent-blue)' : 'transparent', color: currentH === String(i).padStart(2, '0') ? '#fff' : 'var(--text-primary)' }} onMouseEnter={e => { if (currentH !== String(i).padStart(2, '0')) e.currentTarget.style.background = 'var(--bg-hover)' }} onMouseLeave={e => { if (currentH !== String(i).padStart(2, '0')) e.currentTarget.style.background = 'transparent' }}>
+                {String(i).padStart(2, '0')}
+              </div>
+            ))}
+          </div>
+          <div className="no-scrollbar" style={{ flex: 1, maxHeight: '200px', overflowY: 'auto', padding: '6px' }}>
+            <div style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-dim)', textAlign: 'center', marginBottom: '4px', textTransform: 'uppercase' }}>MM</div>
+            {Array.from({ length: 12 }).map((_, i) => {
+              const val = i * 5
+              return (
+              <div key={i} onClick={() => selectM(val)} style={{ padding: '8px', fontSize: '12px', fontWeight: 600, borderRadius: '8px', textAlign: 'center', cursor: 'pointer', background: currentM === String(val).padStart(2, '0') ? 'var(--accent-blue)' : 'transparent', color: currentM === String(val).padStart(2, '0') ? '#fff' : 'var(--text-primary)' }} onMouseEnter={e => { if (currentM !== String(val).padStart(2, '0')) e.currentTarget.style.background = 'var(--bg-hover)' }} onMouseLeave={e => { if (currentM !== String(val).padStart(2, '0')) e.currentTarget.style.background = 'transparent' }}>
+                {String(val).padStart(2, '0')}
+              </div>
+            )})}
+          </div>
         </div>
       )}
     </div>
@@ -244,6 +493,13 @@ export default function JournalDashboard() {
   const navigate = useNavigate()
   const auth = useAuthStore()
   const firstName = auth.user?.user_metadata?.first_name || 'Trader'
+
+  // Theme Logic
+  const [theme, setTheme] = useState(() => localStorage.getItem('mkt_sim_theme') || 'light')
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme)
+    localStorage.setItem('mkt_sim_theme', theme)
+  }, [theme])
 
   const [trades, setTrades] = useState([])
   const [tradesLoading, setTradesLoading] = useState(true)
@@ -283,6 +539,20 @@ export default function JournalDashboard() {
   ])
   const [isChatLoading, setIsChatLoading] = useState(false)
   const chatEndRef = useRef(null)
+
+  // Gallery & Lightbox Context
+  const [galleryDateFilter, setGalleryDateFilter] = useState('All')
+  const [galleryResultFilter, setGalleryResultFilter] = useState('All')
+  const [winRateMode, setWinRateMode] = useState(localStorage.getItem('journal_wr_mode') || 'withBE')
+
+  useEffect(() => {
+    localStorage.setItem('journal_wr_mode', winRateMode)
+  }, [winRateMode])
+  const [viewingContext, setViewingContext] = useState(null) // { trades: [], tradeIdx: 0, imgIdx: 0 }
+  
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successQuote, setSuccessQuote] = useState('')
+  const [lastLoggedTrade, setLastLoggedTrade] = useState(null)
 
   useEffect(() => {
     if (activeTab === 'Strategy Enhancement') {
@@ -388,6 +658,7 @@ ${JSON.stringify(trades.map(t => {
         pipval: trade.pipval.toString(),
         emotion: trade.emotion || '',
         notes: trade.notes || '',
+        images: trade.images || [],
       })
       setEditingTradeId(trade.id)
     } else {
@@ -414,9 +685,12 @@ ${JSON.stringify(trades.map(t => {
       lots: parseFloat(form.lots) || 0.1,
       pipval: parseFloat(form.pipval) || 1,
       emotion: form.emotion, notes: form.notes.trim(),
+      images: form.images || [],
     }
     newTrade['entryTime'] = form.entryTime || null
     newTrade['exitTime'] = form.exitTime || null
+
+    let savedData = null
 
     if (editingTradeId) {
       const { data, error } = await supabase
@@ -432,6 +706,7 @@ ${JSON.stringify(trades.map(t => {
         return
       }
 
+      savedData = data
       setTrades(trades.map(t => t.id === editingTradeId ? data : t))
     } else {
       const { data, error } = await supabase
@@ -446,11 +721,27 @@ ${JSON.stringify(trades.map(t => {
         return
       }
 
+      savedData = data
       setTrades([...trades, data])
     }
 
     setShowModal(false)
     setEditingTradeId(null)
+
+    // Trigger Success Experience
+    if (savedData) {
+      const result = getTradeResult(savedData)
+      setLastLoggedTrade(savedData)
+      setSuccessQuote(MOTIVATIONAL_NOTES[Math.floor(Math.random() * MOTIVATIONAL_NOTES.length)])
+      setShowSuccessModal(true)
+
+      if (result === 'Win') {
+        console.info("Matched 'Win' result, triggering celebration...");
+        triggerCelebration()
+      } else {
+        console.info("Trade result was not 'Win' (was: " + result + "), no celebration.");
+      }
+    }
   }
 
   function handleDeleteClick(id) {
@@ -476,12 +767,20 @@ ${JSON.stringify(trades.map(t => {
   // ── COMPUTED ────────────────────────────────────────────────
   const closed = trades.filter(t => t.exit)
   const open = trades.filter(t => !t.exit)
-  const wins = closed.filter(t => calcPnl(t).usd >= 0)
-  const losses = closed.filter(t => calcPnl(t).usd < 0)
   const totalPnl = closed.reduce((s, t) => s + calcPnl(t).usd, 0)
   const totalPips = closed.reduce((s, t) => s + calcPnl(t).pips, 0)
-  const wr = closed.length ? wins.length / closed.length * 100 : 0
-  const rrVals = trades.filter(t => t.sl && t.tp).map(calcRR)
+  
+  const wins = closed.filter(t => getTradeResult(t) === 'Win')
+  const losses = closed.filter(t => getTradeResult(t) === 'Loss')
+  const beTrades = closed.filter(t => getTradeResult(t) === 'BE')
+
+  const wr = winRateMode === 'withBE'
+    ? (closed.length ? (wins.length / closed.length * 100) : 0)
+    : (wins.length + losses.length ? (wins.length / (wins.length + losses.length) * 100) : 0)
+
+  const rrVals = trades.filter(t => t.exit && getTradeResult(t) === 'Win')
+                       .map(t => calcRR(t))
+                       .filter(val => val > 0)
   const avgRR = rrVals.length ? rrVals.reduce((a, b) => a + b, 0) / rrVals.length : 0
 
   const byPair = {}
@@ -543,14 +842,59 @@ ${JSON.stringify(trades.map(t => {
   const hour = new Date().getHours()
   const tod = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
+  // ── GALLERY FILTERING ──────────────────────────────────────
+  const galleryTrades = useMemo(() => {
+    let list = trades.filter(t => t.images && t.images.length > 0)
+    
+    // Result Filter
+    if (galleryResultFilter !== 'All') {
+      list = list.filter(t => {
+        const pnl = calcPnl(t)?.usd || 0
+        if (galleryResultFilter === 'Win') return pnl > 0
+        if (galleryResultFilter === 'Loss') return pnl < 0
+        if (galleryResultFilter === 'BE') return pnl === 0
+        return true
+      })
+    }
+
+    // Date Filter (Reuse logic from stats if possible, or simple version here)
+    if (galleryDateFilter !== 'All') {
+      const today = new Date()
+      today.setHours(0,0,0,0)
+      
+      list = list.filter(t => {
+        const d = new Date(t.date + 'T12:00:00')
+        d.setHours(0,0,0,0)
+        
+        if (galleryDateFilter === 'Today') return d.getTime() === today.getTime()
+        if (galleryDateFilter === 'This Week') {
+          const todayCopy = new Date(today.getTime())
+          const diff = todayCopy.getDate() - todayCopy.getDay() + (todayCopy.getDay() === 0 ? -6 : 1)
+          const start = new Date(todayCopy.setDate(diff))
+          return d >= start
+        }
+        if (galleryDateFilter === 'This Month') {
+          return d.getMonth() === new Date().getMonth() && d.getFullYear() === new Date().getFullYear()
+        }
+        return true
+      })
+    }
+
+    return list.slice().reverse()
+  }, [trades, galleryDateFilter, galleryResultFilter])
+
   // ── RENDER ──────────────────────────────────────────────────
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)', fontFamily: 'var(--font-sans)' }}>
 
+      <style>{`
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      `}</style>
       {/* ── NAVBAR (matches Dashboard exactly) ── */}
       <nav style={{
         position: 'sticky', top: 0, zIndex: 100,
-        background: 'rgba(255,255,255,0.90)',
+        background: 'var(--bg-panel-alpha)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid var(--border)',
         padding: '0 40px', height: '64px',
@@ -572,7 +916,7 @@ ${JSON.stringify(trades.map(t => {
             </svg>
             Back
           </button>
-          <span style={{ fontSize: '22px', fontWeight: 800, color: 'black', letterSpacing: '-0.5px' }}>
+          <span style={{ fontSize: '22px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
             MktSim
           </span>
           <span style={{
@@ -609,19 +953,56 @@ ${JSON.stringify(trades.map(t => {
           width: '260px',
           background: 'var(--bg-panel)',
           borderRight: '1px solid var(--border)',
-          padding: '32px 16px',
-          display: 'flex', flexDirection: 'column', gap: '8px',
+          padding: '32px 16px 24px',
+          display: 'flex', flexDirection: 'column',
           position: 'fixed', top: '64px', bottom: 0,
           overflowY: 'auto',
           zIndex: 40,
         }}>
-          <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '12px', paddingLeft: '16px' }}>
-            Menu
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '12px', paddingLeft: '16px' }}>
+                Menu
+              </div>
+              <SidebarItem label="Dashboard" active={activeTab === 'Dashboard'} onClick={() => setActiveTab('Dashboard')} />
+              <SidebarItem label="Trading Statistics" active={activeTab === 'Trading Statistics'} onClick={() => setActiveTab('Trading Statistics')} />
+              <SidebarItem label="Strategy Enhancement" active={activeTab === 'Strategy Enhancement'} onClick={() => setActiveTab('Strategy Enhancement')} />
+              <SidebarItem label="Trading History" active={activeTab === 'Trading History'} onClick={() => setActiveTab('Trading History')} />
+              <SidebarItem label="Images of your trades" active={activeTab === 'Images of your trades'} onClick={() => setActiveTab('Images of your trades')} />
+            </div>
+
+          {/* Bottom Section: Theme & Support */}
+          <div style={{ marginTop: 'auto', borderTop: '1px solid var(--border)', paddingTop: '24px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '4px', paddingLeft: '16px' }}>
+              Preference & Support
+            </div>
+            <button
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px',
+                borderRadius: '12px', border: 'none', background: 'var(--bg-hover)',
+                cursor: 'pointer', transition: 'var(--transition)', width: '100%',
+                color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600
+              }}
+            >
+              <span style={{ fontSize: '18px' }}>{theme === 'light' ? '🌙' : '☀️'}</span>
+              Switch to {theme === 'light' ? 'Dark' : 'Light'} Mode
+            </button>
+
+            <a
+              href="https://discord.gg/8cz2eZk8"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 16px',
+                borderRadius: '12px', background: 'rgba(88, 101, 242, 0.1)',
+                cursor: 'pointer', transition: 'var(--transition)', width: '100%',
+                color: '#5865F2', fontSize: '13px', fontWeight: 700
+              }}
+            >
+              <span style={{ fontSize: '18px' }}>💬</span>
+              Join Discord Support
+            </a>
           </div>
-          <SidebarItem label="Dashboard" active={activeTab === 'Dashboard'} onClick={() => setActiveTab('Dashboard')} />
-          <SidebarItem label="Trading Statistics" active={activeTab === 'Trading Statistics'} onClick={() => setActiveTab('Trading Statistics')} />
-          <SidebarItem label="Strategy Enhancement" active={activeTab === 'Strategy Enhancement'} onClick={() => setActiveTab('Strategy Enhancement')} />
-          <SidebarItem label="Trading History" active={activeTab === 'Trading History'} onClick={() => setActiveTab('Trading History')} />
         </aside>
 
         {/* ── MAIN CONTENT ── */}
@@ -634,7 +1015,7 @@ ${JSON.stringify(trades.map(t => {
               <>
                 <div style={{ marginBottom: '32px' }}>
                   <h1 style={{ fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-1px', marginBottom: '6px' }}>
-                    {tod}, <span style={{ color: 'black' }}>{firstName}</span> 👋
+                    {tod}, <span style={{ color: 'var(--text-primary)' }}>{firstName}</span> 👋
                   </h1>
                   <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
                     {open.length} open position{open.length !== 1 ? 's' : ''} &nbsp;·&nbsp; {trades.length} trades logged &nbsp;·&nbsp; Journal overview
@@ -649,29 +1030,40 @@ ${JSON.stringify(trades.map(t => {
                 }}>
                   <StatPill
                     label="Total Trades" value={trades.length}
-                    color="black" sub="all time"
+                    color="var(--text-primary)" sub="all time"
                   />
                   <StatPill
                     label="Net P&L"
-                    value={(totalPnl >= 0 ? '+' : '') + '$' + totalPnl.toFixed(2)}
-                    color="green"
-                    sub={(totalPips >= 0 ? '+' : '') + totalPips.toFixed(1) + ' pips'}
+                    value={(totalPnl > 0 ? '+' : totalPnl < 0 ? '-' : '') + '$' + Math.abs(totalPnl).toFixed(2)}
+                    color={totalPnl >= 0 ? 'var(--accent-green)' : 'var(--accent-red)'}
+                    sub={(totalPips > 0 ? '+' : totalPips < 0 ? '-' : '') + Math.abs(totalPips).toFixed(1) + ' pips'}
                   />
                   <StatPill
                     label="Win Rate" value={wr.toFixed(1) + '%'}
-                    color="black"
-                    sub={wins.length + 'W  /  ' + losses.length + 'L'}
-                  />
+                    color="var(--text-primary)"
+                    sub={`${wins.length}W / ${losses.length}L${winRateMode === 'withBE' ? ` / ${beTrades.length}BE` : ''}`}
+                  >
+                    <div style={{ display: 'flex', background: 'var(--bg-base)', padding: '2px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                      <button 
+                        onClick={() => setWinRateMode('withBE')}
+                        style={{ padding: '2px 6px', fontSize: '9px', fontWeight: 800, borderRadius: '6px', border: 'none', cursor: 'pointer', background: winRateMode === 'withBE' ? 'var(--accent-blue)' : 'transparent', color: winRateMode === 'withBE' ? 'white' : 'var(--text-dim)', transition: 'all 0.2s' }}
+                      >+BE</button>
+                      <button 
+                        onClick={() => setWinRateMode('withoutBE')}
+                        style={{ padding: '2px 6px', fontSize: '9px', fontWeight: 800, borderRadius: '6px', border: 'none', cursor: 'pointer', background: winRateMode === 'withoutBE' ? 'var(--accent-blue)' : 'transparent', color: winRateMode === 'withoutBE' ? 'white' : 'var(--text-dim)', transition: 'all 0.2s' }}
+                      >-BE</button>
+                    </div>
+                  </StatPill>
                   <StatPill
                     label="Best Pair"
                     value={bestPair ? bestPair[0] : '—'}
-                    color="black"
+                    color="var(--text-primary)"
                     sub={bestPair ? (bestPair[1] >= 0 ? '+' : '') + '$' + bestPair[1].toFixed(2) : '—'}
                   />
                   <StatPill
                     label="Avg R:R"
                     value={avgRR.toFixed(2) + 'R'}
-                    color="black"
+                    color="var(--text-primary)"
                     sub="risk / reward"
                   />
                 </div>
@@ -696,7 +1088,7 @@ ${JSON.stringify(trades.map(t => {
                           background: 'rgba(239,68,68,0.08)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px',
                         }}>🐻</div>
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'black', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bear</span>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bear</span>
                       </div>
 
                       {/* Center label */}
@@ -714,7 +1106,7 @@ ${JSON.stringify(trades.map(t => {
                           background: 'rgba(16,185,129,0.08)',
                           display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '26px',
                         }}>🐂</div>
-                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'black', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bull</span>
+                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Bull</span>
                       </div>
                     </div>
 
@@ -727,17 +1119,17 @@ ${JSON.stringify(trades.map(t => {
                         left: `${bullPct * 100}%`,
                         transform: 'translate(-50%, -50%)',
                         width: '16px', height: '16px', borderRadius: '50%',
-                        background: 'var(--accent-blue)', border: '3px solid #fff',
+                        background: 'var(--accent-blue)', border: '3px solid var(--bg-panel)',
                         boxShadow: '0 0 0 2px var(--accent-blue), 0 2px 6px rgba(59,130,246,0.35)',
                         transition: 'left .6s ease',
                       }} />
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'black' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
                         {shorts} shorts &nbsp;({(bearPct * 100).toFixed(1)}%)
                       </span>
-                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'black' }}>
+                      <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>
                         {longs} longs &nbsp;({(bullPct * 100).toFixed(1)}%)
                       </span>
                     </div>
@@ -748,7 +1140,7 @@ ${JSON.stringify(trades.map(t => {
                     <CardLabel>
                       Trading Day Performance
                       <span style={{ fontSize: '14px', fontWeight: 400, color: 'var(--text-secondary)', textTransform: 'none', letterSpacing: 0 }}>
-                        Best Day: <span style={{ fontWeight: 700, color: 'black' }}>{bestDay}</span>
+                        Best Day: <span style={{ fontWeight: 700, color: 'var(--accent-green)' }}>{bestDay}</span>
                       </span>
                     </CardLabel>
 
@@ -882,13 +1274,15 @@ ${JSON.stringify(trades.map(t => {
                   <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                     <thead>
                       <tr style={{ background: 'var(--bg-base)', borderBottom: '1px solid var(--border)' }}>
-                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Date</th>
-                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Asset</th>
-                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Type</th>
-                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Entry / Exit</th>
-                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Lot Size</th>
-                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Duration</th>
-                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', textAlign: 'right' }}>P/L</th>
+                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Date</th>
+                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Asset</th>
+                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Type</th>
+                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Result</th>
+                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Entry / Exit</th>
+                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Lot Size</th>
+                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>RR</th>
+                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Duration</th>
+                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', textAlign: 'right' }}>P/L</th>
                         <th style={{ padding: '16px 20px', width: '50px' }}></th>
                       </tr>
                     </thead>
@@ -906,46 +1300,110 @@ ${JSON.stringify(trades.map(t => {
                               <span style={{
                                 padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
                                 background: t.dir === 'long' ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                                color: 'black'
+                                color: 'var(--text-primary)'
                               }}>
                                 {t.dir}
                               </span>
+                            </td>
+                            <td style={{ padding: '14px 20px', fontSize: '13px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{
+                                  padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase',
+                                  background: getTradeResult(t) === 'Win' ? 'rgba(16,185,129,0.2)' : getTradeResult(t) === 'Loss' ? 'rgba(239,68,68,0.2)' : 'rgba(107,114,128,0.2)',
+                                  color: getTradeResult(t) === 'Win' ? 'var(--accent-green)' : getTradeResult(t) === 'Loss' ? 'var(--accent-red)' : 'var(--text-secondary)'
+                                }}>
+                                  {getTradeResult(t)}
+                                </span>
+                                {t.exit && (
+                                  <button 
+                                    onClick={async (e) => {
+                                      e.stopPropagation()
+                                      let nextStatus
+                                      if (!t.manual_result) nextStatus = 'BE'
+                                      else if (t.manual_result === 'BE') nextStatus = 'Win'
+                                      else if (t.manual_result === 'Win') nextStatus = 'Loss'
+                                      else nextStatus = null // Revert to auto
+                                      
+                                      // Optimistic update
+                                      setTrades(prev => prev.map(tr => tr.id === t.id ? { ...tr, manual_result: nextStatus } : tr))
+
+                                      const { error } = await supabase.from('trades').update({ manual_result: nextStatus }).eq('id', t.id)
+                                      if (error) {
+                                        console.error('Manual result update failed:', error)
+                                        alert('Failed to update result. Error: ' + error.message)
+                                        // Rollback logic
+                                        setTrades(prev => prev.map(tr => tr.id === t.id ? { ...tr, manual_result: t.manual_result } : tr))
+                                      }
+                                    }}
+                                    title="Toggle Breakeven Status"
+                                    style={{
+                                      background: 'var(--bg-base)', border: '1px solid var(--border)', borderRadius: '6px', 
+                                      padding: '4px 6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      cursor: 'pointer', transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--accent-blue)'}
+                                    onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                                  >
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={t.manual_result === 'BE' ? 'var(--accent-blue)' : 'var(--text-dim)'} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+                                  </button>
+                                )}
+                              </div>
                             </td>
                             <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>
                               {t.entryTime || '--:--'} <span style={{ color: 'var(--text-dim)' }}>→</span> {t.exitTime || '--:--'}
                             </td>
                             <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>{t.lots}</td>
+                            <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{calcRR(t)}R</td>
                             <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>{calcDuration(t)}</td>
-                            <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: 600, textAlign: 'right', fontFamily: 'var(--font-sans)', color: 'black' }}>
+                            <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: 600, textAlign: 'right', fontFamily: 'var(--font-sans)', color: pnlVal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
                               {pnlVal === null ? 'Open' : `${pnlVal >= 0 ? '+' : ''}$${pnlVal.toFixed(2)}`}
                             </td>
                             <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                               <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                                {t.images && t.images.length > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      const reversed = trades.slice().reverse()
+                                      const tIdx = reversed.findIndex(rt => rt.id === t.id)
+                                      setViewingContext({ trades: reversed, tradeIdx: tIdx, imgIdx: 0 })
+                                    }}
+                                    style={{
+                                      background: 'rgba(59,130,246,0.1)', border: 'none', cursor: 'pointer',
+                                      fontSize: '16px', color: 'var(--accent-blue)', padding: '6px',
+                                      borderRadius: '8px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    }}
+                                    title="View Screenshots"
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.1)'; }}
+                                  >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                  </button>
+                                )}
                                 <button
                                   onClick={() => openModal(t)}
                                   style={{
-                                    background: 'transparent', border: 'none', cursor: 'pointer',
-                                    fontSize: '16px', color: 'var(--text-dim)', padding: '6px',
-                                    borderRadius: '6px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    background: 'var(--bg-base)', border: 'none', cursor: 'pointer',
+                                    fontSize: '16px', color: 'var(--text-secondary)', padding: '6px',
+                                    borderRadius: '8px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center'
                                   }}
                                   title="Edit Trade"
-                                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--accent-blue)'; e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; }}
-                                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-dim)'; e.currentTarget.style.background = 'transparent'; }}
+                                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--text-primary)'; e.currentTarget.style.background = 'var(--border)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--text-secondary)'; e.currentTarget.style.background = 'var(--bg-base)'; }}
                                 >
-                                  ✏️
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                                 </button>
                                 <button
                                   onClick={() => handleDeleteClick(t.id)}
                                   style={{
-                                    background: 'transparent', border: 'none', cursor: 'pointer',
+                                    background: 'rgba(239,68,68,0.1)', border: 'none', cursor: 'pointer',
                                     fontSize: '16px', color: 'var(--accent-red)', padding: '6px',
-                                    borderRadius: '6px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    borderRadius: '8px', transition: 'all 0.2s', display: 'flex', alignItems: 'center', justifyContent: 'center'
                                   }}
                                   title="Delete Trade"
-                                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.08)'; }}
-                                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
+                                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.2)'; }}
+                                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239,68,68,0.1)'; }}
                                 >
-                                  🗑️
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                                 </button>
                               </div>
                             </td>
@@ -958,12 +1416,101 @@ ${JSON.stringify(trades.map(t => {
               </div>
             )}
 
-            {activeTab === 'Trading Statistics' && (
-              <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                <div style={{ fontSize: '40px', marginBottom: '16px' }}>🚧</div>
-                <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '8px' }}>Feature in Development</div>
-                <div>This section will be available in a future update.</div>
+            {activeTab === 'Images of your trades' && (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+                  <h1 style={{ fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-1px', margin: 0 }}>
+                    Trade Gallery
+                  </h1>
+                  
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <div style={{ width: '160px' }}>
+                      <CustomSelect 
+                        value={galleryDateFilter} 
+                        onChange={setGalleryDateFilter}
+                        options={[
+                          { value: 'All', label: 'All Dates' },
+                          { value: 'Today', label: 'Today' },
+                          { value: 'This Week', label: 'This Week' },
+                          { value: 'This Month', label: 'This Month' },
+                        ]}
+                      />
+                    </div>
+                    <div style={{ width: '140px' }}>
+                      <CustomSelect 
+                        value={galleryResultFilter} 
+                        onChange={setGalleryResultFilter}
+                        options={[
+                          { value: 'All', label: 'All Results' },
+                          { value: 'Win', label: 'Wins Only' },
+                          { value: 'Loss', label: 'Losses Only' },
+                          { value: 'BE', label: 'Break Even' },
+                        ]}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {galleryTrades.length === 0 ? (
+                  <div style={{ padding: '80px 20px', textAlign: 'center', background: 'var(--bg-panel)', borderRadius: '24px', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: '48px', marginBottom: '16px' }}>📸</div>
+                    <h3 style={{ fontSize: '18px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>No images found</h3>
+                    <p style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Try adjusting your filters or log more trades with screenshots.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '20px' }}>
+                    {galleryTrades.map((t, tIdx) => (
+                      <div 
+                        key={t.id}
+                        onClick={() => {
+                          setViewingContext({ trades: galleryTrades, tradeIdx: tIdx, imgIdx: 0 })
+                        }}
+                        style={{
+                          background: 'var(--bg-panel)', borderRadius: '20px', overflow: 'hidden', 
+                          border: '1px solid var(--border)', cursor: 'pointer', transition: 'all 0.2s',
+                          boxShadow: 'var(--shadow-sm)', position: 'relative',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.transform = 'translateY(-4px)'
+                          e.currentTarget.style.boxShadow = 'var(--shadow-md)'
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.transform = 'translateY(0)'
+                          e.currentTarget.style.boxShadow = 'var(--shadow-sm)'
+                        }}
+                      >
+                        <div style={{ position: 'relative', aspectRatio: '4/3', overflow: 'hidden' }}>
+                          <img src={t.images[0]} alt={t.pair} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                        <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--bg-panel)', borderTop: '1px solid var(--border)' }}>
+                           <div style={{ 
+                             fontSize: '11px', fontWeight: 800, 
+                             color: (calcPnl(t)?.usd || 0) >= 0 ? 'var(--accent-green)' : 'var(--accent-red)',
+                             textTransform: 'uppercase',
+                             minWidth: '60px'
+                           }}>
+                             {t.pair}
+                           </div>
+                           <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                             {t.date}
+                           </span>
+                           <div style={{ minWidth: '60px', textAlign: 'right' }}>
+                             {t.images.length > 1 && (
+                               <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--accent-blue)', textTransform: 'uppercase' }}>
+                                 +{t.images.length - 1} MORE
+                               </span>
+                             )}
+                           </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+            )}
+
+            {activeTab === 'Trading Statistics' && (
+              <TradingStatistics trades={trades} tod={tod} firstName={firstName} />
             )}
 
             {activeTab === 'Strategy Enhancement' && (
@@ -982,7 +1529,7 @@ ${JSON.stringify(trades.map(t => {
                 zIndex: 10,
                 boxShadow: '0 8px 32px rgba(0,0,0,0.08)'
               }}>
-                <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: '#fff' }}>
+                <div style={{ padding: '20px 24px', borderBottom: '1px solid var(--border)', background: 'var(--bg-panel)' }}>
                   <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>AI Trading Assistant</h2>
                   <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>Ask questions about your setups, performance drops, or general market conditions.</p>
                 </div>
@@ -995,9 +1542,9 @@ ${JSON.stringify(trades.map(t => {
                         padding: '12px 16px', borderRadius: '12px',
                         fontSize: '14px', lineHeight: 1.6,
                         color: msg.role === 'user' ? '#fff' : 'var(--text-primary)',
-                        background: msg.role === 'user' ? 'var(--accent-blue)' : '#fff',
-                        border: msg.role === 'user' ? 'none' : '1px solid var(--border)',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+                        background: msg.role === 'user' ? 'var(--accent-blue)' : 'var(--bg-card)',
+                        border: '1px solid var(--border)',
+                        boxShadow: 'var(--shadow-sm)',
                       }}>
                         {msg.role === 'user' ? msg.content : (() => {
                           const barMatch = msg.content.match(/:::SESSION_BARS\n([\s\S]*?)\n:::/)
@@ -1064,7 +1611,7 @@ ${JSON.stringify(trades.map(t => {
                   ))}
                   {isChatLoading && (
                     <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-                      <div style={{ padding: '12px 16px', borderRadius: '12px', fontSize: '14px', color: 'var(--text-secondary)', background: '#fff', border: '1px solid var(--border)' }}>
+                      <div style={{ padding: '12px 16px', borderRadius: '12px', fontSize: '14px', color: 'var(--text-secondary)', background: 'var(--bg-card)', border: '1px solid var(--border)' }}>
                         Thinking...
                       </div>
                       <div ref={chatEndRef} />
@@ -1072,7 +1619,7 @@ ${JSON.stringify(trades.map(t => {
                   )}
                 </div>
 
-                <div style={{ padding: '16px 24px', background: '#fff', borderTop: '1px solid var(--border)' }}>
+                <div style={{ padding: '16px 24px', background: 'var(--bg-panel)', borderTop: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
                     {['Show me trades with > 3RR', 'Analyze my biggest loss', 'What is my best session?'].map(prompt => (
                       <button
@@ -1120,18 +1667,19 @@ ${JSON.stringify(trades.map(t => {
           onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}
           style={{
             position: 'fixed', inset: 0,
-            background: 'rgba(15,23,42,0.45)',
+            background: 'rgba(0, 0, 0, 0.75)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 999, backdropFilter: 'blur(4px)',
+            zIndex: 999, backdropFilter: 'blur(8px)',
           }}
         >
-          <div style={{
-            background: '#fff', borderRadius: '24px',
+          <div className="no-scrollbar" style={{
+            background: 'var(--bg-panel)', borderRadius: '28px',
             border: '1px solid var(--border)',
-            boxShadow: '0 24px 64px rgba(0,0,0,0.14)',
-            width: '580px', maxWidth: '95vw',
+            boxShadow: 'var(--shadow-md)',
+            width: '620px', maxWidth: '95vw',
             maxHeight: '90vh', overflowY: 'auto',
             display: 'flex', flexDirection: 'column',
+            transition: 'var(--transition)'
           }}>
             {/* Modal header */}
             <div style={{
@@ -1165,70 +1713,129 @@ ${JSON.stringify(trades.map(t => {
                 <FGroup label="Pair *">
                   <AssetAutocomplete value={form.pair} onChange={val => setF('pair', val)} />
                 </FGroup>
+                
                 <FGroup label="Direction">
-                  <select style={inputStyle} value={form.dir} onChange={e => setF('dir', e.target.value)}>
-                    <option value="long">Long (Buy)</option>
-                    <option value="short">Short (Sell)</option>
-                  </select>
+                  <CustomSelect 
+                    value={form.dir} 
+                    onChange={val => setF('dir', val)}
+                    options={[
+                      { value: 'long', label: 'Long (Buy)' },
+                      { value: 'short', label: 'Short (Sell)' }
+                    ]}
+                  />
                 </FGroup>
+
                 <FGroup label="Date">
-                  <input style={inputStyle} type="date" value={form.date} onChange={e => setF('date', e.target.value)} />
+                  <CustomDatePicker value={form.date} onChange={val => setF('date', val)} />
                 </FGroup>
+
                 <FGroup label="Session">
-                  <select style={inputStyle} value={form.session} onChange={e => setF('session', e.target.value)}>
-                    <option value="">— Select —</option>
-                    {SESSIONS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-                  </select>
+                  <CustomSelect 
+                    value={form.session} 
+                    onChange={val => setF('session', val)}
+                    placeholder="— Select —"
+                    options={SESSIONS.map(s => ({ value: s.key, label: s.label }))}
+                  />
                 </FGroup>
+
                 <FGroup label="Entry Time">
-                  <input style={inputStyle} type="time" value={form.entryTime} onChange={e => setF('entryTime', e.target.value)} />
+                  <CustomTimePicker value={form.entryTime} onChange={val => setF('entryTime', val)} />
                 </FGroup>
+
                 <FGroup label="Exit Time">
-                  <input style={inputStyle} type="time" value={form.exitTime} onChange={e => setF('exitTime', e.target.value)} />
+                  <CustomTimePicker value={form.exitTime} onChange={val => setF('exitTime', val)} />
                 </FGroup>
+
                 <FGroup label="Entry *">
-                  <input style={inputStyle} type="number" step="0.00001" value={form.entry} onChange={e => setF('entry', e.target.value)} placeholder="1.08520" />
+                  <StyledInput type="number" step="0.00001" value={form.entry} onChange={e => setF('entry', e.target.value)} placeholder="1.08520" />
                 </FGroup>
                 <FGroup label="Exit">
-                  <input style={inputStyle} type="number" step="0.00001" value={form.exit} onChange={e => setF('exit', e.target.value)} placeholder="Blank if still open" />
+                  <StyledInput type="number" step="0.00001" value={form.exit} onChange={e => setF('exit', e.target.value)} placeholder="Blank if still open" />
                 </FGroup>
                 <FGroup label="Stop Loss *">
-                  <input style={inputStyle} type="number" step="0.00001" value={form.sl} onChange={e => setF('sl', e.target.value)} placeholder="1.08200" />
+                  <StyledInput type="number" step="0.00001" value={form.sl} onChange={e => setF('sl', e.target.value)} placeholder="1.08200" />
                 </FGroup>
                 <FGroup label="Take Profit *">
-                  <input style={inputStyle} type="number" step="0.00001" value={form.tp} onChange={e => setF('tp', e.target.value)} placeholder="1.09200" />
+                  <StyledInput type="number" step="0.00001" value={form.tp} onChange={e => setF('tp', e.target.value)} placeholder="1.09200" />
                 </FGroup>
                 <FGroup label="Lot Size">
-                  <input style={inputStyle} type="number" step="0.01" value={form.lots} onChange={e => setF('lots', e.target.value)} />
+                  <StyledInput type="number" step="0.01" value={form.lots} onChange={e => setF('lots', e.target.value)} />
                 </FGroup>
                 <FGroup label="Pip Value ($)">
-                  <input style={inputStyle} type="number" step="0.01" value={form.pipval} onChange={e => setF('pipval', e.target.value)} />
+                  <StyledInput type="number" step="0.01" value={form.pipval} onChange={e => setF('pipval', e.target.value)} />
                 </FGroup>
+
                 <FGroup label="Emotion">
-                  <select style={inputStyle} value={form.emotion} onChange={e => setF('emotion', e.target.value)}>
-                    <option value="">— Select —</option>
-                    <option value="calm">😌  Calm</option>
-                    <option value="confident">💪  Confident</option>
-                    <option value="fomo">😰  FOMO</option>
-                    <option value="fearful">😨  Fearful</option>
-                    <option value="greedy">🤑  Greedy</option>
-                    <option value="patient">🧘  Patient</option>
-                    <option value="disciplined">✅  Disciplined</option>
-                  </select>
+                  <CustomSelect 
+                    value={form.emotion} 
+                    onChange={val => setF('emotion', val)}
+                    placeholder="— Select —"
+                    options={[
+                      { value: 'calm', label: '😌  Calm' },
+                      { value: 'confident', label: '💪  Confident' },
+                      { value: 'fomo', label: '😰  FOMO' },
+                      { value: 'fearful', label: '😨  Fearful' },
+                      { value: 'greedy', label: '🤑  Greedy' },
+                      { value: 'patient', label: '🧘  Patient' },
+                      { value: 'disciplined', label: '✅  Disciplined' }
+                    ]}
+                  />
                 </FGroup>
+
                 <FGroup label="Notes" full>
                   <textarea
-                    style={{ ...inputStyle, fontFamily: 'var(--font-sans)', resize: 'vertical', minHeight: '80px' }}
+                    style={{ ...inputStyle, background: 'var(--bg-panel)', fontFamily: 'var(--font-sans)', resize: 'vertical', minHeight: '80px' }}
                     value={form.notes}
                     onChange={e => setF('notes', e.target.value)}
                     placeholder="Setup, confluences, reasoning, lessons..."
                   />
                 </FGroup>
+                
+                <FGroup label="Screenshots (Max 4)" full>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '4px' }}>
+                    {(form.images || []).map((img, idx) => (
+                      <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '12px', border: '1.5px solid var(--border)', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                        <img src={img} alt={`Screenshot ${idx+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button onClick={() => {
+                          const newImages = [...(form.images || [])];
+                          newImages.splice(idx, 1);
+                          setF('images', newImages);
+                        }} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.65)', color: 'white', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                      </div>
+                    ))}
+                    {(form.images || []).length < 4 && (
+                      <label style={{ width: '80px', height: '80px', borderRadius: '12px', border: '1.5px dashed var(--text-dim)', background: 'var(--bg-base)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card)'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-base)'}
+                      >
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '4px' }}>Upload</span>
+                        <input type="file" accept="image/*" multiple onChange={(e) => {
+                          const files = Array.from(e.target.files);
+                          if ((form.images || []).length + files.length > 4) {
+                            alert('You can only upload a maximum of 4 images per trade.');
+                            return;
+                          }
+                          files.forEach(file => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setForm(prev => ({
+                                ...prev,
+                                images: [...(prev.images || []), reader.result]
+                              }));
+                            };
+                            reader.readAsDataURL(file);
+                          });
+                        }} style={{ display: 'none' }} />
+                      </label>
+                    )}
+                  </div>
+                </FGroup>
 
               </div>
 
               {/* Actions */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '22px', paddingTop: '18px', borderTop: '1px solid var(--bg-base)' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '22px', paddingTop: '18px', borderTop: '1px solid var(--border)' }}>
                 <Btn onClick={() => setShowModal(false)}>Cancel</Btn>
                 <Btn primary onClick={submitTrade}>Save Trade</Btn>
               </div>
@@ -1243,7 +1850,7 @@ ${JSON.stringify(trades.map(t => {
           onClick={e => { if (e.target === e.currentTarget) setTradeToDelete(null) }}
           style={{
             position: 'fixed', inset: 0,
-            background: 'rgba(15,23,42,0.45)',
+            background: 'rgba(0, 0, 0, 0.75)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             zIndex: 9999, backdropFilter: 'blur(4px)',
           }}
@@ -1285,6 +1892,131 @@ ${JSON.stringify(trades.map(t => {
               <Btn style={{ flex: 1, justifyContent: 'center' }} onClick={() => setTradeToDelete(null)}>Cancel</Btn>
               <Btn danger style={{ flex: 1, justifyContent: 'center' }} onClick={() => confirmDelete(tradeToDelete)}>Delete</Btn>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── ENHANCED LIGHTBOX ── */}
+      {viewingContext && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setViewingContext(null) }}
+          style={{
+            position: 'fixed', inset: 0,
+            background: 'rgba(15,23,42,0.92)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 99999, backdropFilter: 'blur(12px)',
+          }}
+        >
+          {(() => {
+            const { trades: vTrades, tradeIdx, imgIdx } = viewingContext
+            const currentTrade = vTrades[tradeIdx]
+            const images = currentTrade.images || []
+            
+            const handleNext = () => {
+              if (imgIdx < images.length - 1) {
+                setViewingContext({ ...viewingContext, imgIdx: imgIdx + 1 })
+              } else if (tradeIdx < vTrades.length - 1) {
+                setViewingContext({ ...viewingContext, tradeIdx: tradeIdx + 1, imgIdx: 0 })
+              }
+            }
+
+            const handlePrev = () => {
+              if (imgIdx > 0) {
+                setViewingContext({ ...viewingContext, imgIdx: imgIdx - 1 })
+              } else if (tradeIdx > 0) {
+                const prevTrade = vTrades[tradeIdx - 1]
+                setViewingContext({ ...viewingContext, tradeIdx: tradeIdx - 1, imgIdx: (prevTrade.images?.length || 1) - 1 })
+              }
+            }
+
+            const canNext = imgIdx < images.length - 1 || tradeIdx < vTrades.length - 1
+            const canPrev = imgIdx > 0 || tradeIdx > 0
+
+            return (
+              <div style={{ position: 'relative', width: '90vw', maxWidth: '1200px', height: '85vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                <button onClick={() => setViewingContext(null)} style={{ position: 'absolute', top: '-48px', right: '0', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: '#fff', fontSize: '13px', fontWeight: 800, padding: '8px 20px', borderRadius: '999px', cursor: 'pointer' }}>Close ✕</button>
+                
+                {canPrev && (
+                  <button onClick={handlePrev} style={{ position: 'absolute', left: '-60px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  </button>
+                )}
+
+                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                  <img src={images[imgIdx]} alt="Trade Screenshot" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '16px', boxShadow: '0 32px 64px rgba(0,0,0,0.6)' }} />
+                  
+                  {/* Date Badge at Bottom Center of Image View */}
+                  <div style={{ position: 'absolute', bottom: '24px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(15,23,41,0.7)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '10px 24px', borderRadius: '999px', fontSize: '14px', fontWeight: 700, pointerEvents: 'none' }}>
+                    {currentTrade.date} &nbsp;·&nbsp; {currentTrade.pair} &nbsp;·&nbsp; Image {imgIdx + 1} of {images.length}
+                  </div>
+                </div>
+
+                {canNext && (
+                  <button onClick={handleNext} style={{ position: 'absolute', right: '-60px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }}>
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </button>
+                )}
+              </div>
+            )
+          })()}
+        </div>
+      )}
+
+      {/* ── SUCCESS CELEBRATION MODAL ── */}
+      {showSuccessModal && lastLoggedTrade && (
+        <div 
+          onClick={() => setShowSuccessModal(false)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 999999,
+            background: 'rgba(15,23,42,0.8)', backdropFilter: 'blur(10px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px'
+          }}
+        >
+          <div 
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: '100%', maxWidth: '440px', background: 'var(--bg-panel)',
+              borderRadius: '24px', border: '1px solid var(--border)',
+              padding: '40px 32px', textAlign: 'center', position: 'relative',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
+              overflow: 'hidden'
+            }}
+          >
+            {/* Background Decoration */}
+            <div style={{ position: 'absolute', top: '-50px', right: '-50px', width: '200px', height: '200px', background: 'var(--accent-blue)', opacity: 0.1, filter: 'blur(60px)', borderRadius: '50%' }} />
+            
+            <div style={{ fontSize: '56px', marginBottom: '24px' }}>
+              {getTradeResult(lastLoggedTrade) === 'Win' ? '🏆' : '📝'}
+            </div>
+            
+            <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', letterSpacing: '-0.5px' }}>
+              Trade Logged!
+            </h2>
+            
+            <p style={{ fontSize: '14px', color: 'var(--text-secondary)', marginBottom: '24px' }}>
+              {lastLoggedTrade.pair} · {lastLoggedTrade.date}
+            </p>
+
+            <div style={{ 
+              padding: '24px', borderRadius: '20px', 
+              background: 'rgba(59,130,246,0.06)', border: '1px dashed rgba(59,130,246,0.2)', 
+              marginBottom: '32px' 
+            }}>
+              <p style={{ fontSize: '15px', color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.6, fontStyle: 'italic', margin: 0 }}>
+                "{successQuote}"
+              </p>
+            </div>
+
+            <button 
+              style={{
+                width: '100%', padding: '16px', borderRadius: '12px', fontSize: '15px', fontWeight: 700,
+                background: 'var(--accent-blue)', color: 'white', border: 'none', cursor: 'pointer',
+                boxShadow: '0 10px 20px rgba(59,130,246,0.2)'
+              }}
+              onClick={() => setShowSuccessModal(false)}
+            >
+              Continue Trading
+            </button>
           </div>
         </div>
       )}

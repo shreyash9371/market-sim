@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 
-export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
+export default function PriceChart({ priceHistory, currentPrice, orderBook, isRealMarket, candles = [], conditionArrows = [], conditionAnchorPrice, conditionPhase }) {
   const canvasRef = useRef(null)
   const overlayRef = useRef(null)
 
@@ -216,11 +216,14 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
     }
 
     if (!tool) {
+      const isYAxisDrag = x > PAD_LEFT + chartW
       panRef.current = {
         startX: x,
         startY: y,
         startOffsetX: viewRef.current.offsetX,
         startOffsetY: viewRef.current.offsetY,
+        startScaleY: viewRef.current.scaleY,
+        isYAxisDrag,
       }
       return
     }
@@ -254,24 +257,32 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
       return
     }
 
-    // Panning — FLIPPED signs so chart content follows the cursor
     if (panRef.current && !tool) {
-      const { PAD_TOP, PAD_BOTTOM, minPrice, maxPrice, minIdx, maxIdx } = priceRangeRef.current
-      const chartH = H - PAD_TOP - PAD_BOTTOM
-      const chartW = W - priceRangeRef.current.PAD_LEFT - priceRangeRef.current.PAD_RIGHT
-
-      const pricePerPx = (maxPrice - minPrice) / viewRef.current.scaleY / chartH
-      const idxPerPx = (maxIdx - minIdx) / viewRef.current.scaleX / chartW
-
       const dy = y - panRef.current.startY
       const dx = x - panRef.current.startX
 
-      viewRef.current = {
-        ...viewRef.current,
-        // FLIPPED: drag right → content moves right (offsetX decreases)
-        offsetX: panRef.current.startOffsetX - dx * idxPerPx,
-        // FLIPPED: drag up → content moves up (offsetY increases)
-        offsetY: panRef.current.startOffsetY + dy * pricePerPx,
+      if (panRef.current.isYAxisDrag) {
+        // Dragging price axis vertically -> stretch/squeeze mode (TradingView style)
+        // dy < 0 (drag up) -> zoomDelta > 0 -> scaleY increases -> stretch
+        // dy > 0 (drag down) -> zoomDelta < 0 -> scaleY decreases -> squeeze
+        const zoomDelta = -dy * 0.01;
+        viewRef.current = {
+          ...viewRef.current,
+          scaleY: Math.max(0.1, Math.min(20, panRef.current.startScaleY * Math.exp(zoomDelta)))
+        }
+      } else {
+        const { PAD_TOP, PAD_BOTTOM, minPrice, maxPrice, minIdx, maxIdx } = priceRangeRef.current
+        const chartH = H - PAD_TOP - PAD_BOTTOM
+        const chartW = W - priceRangeRef.current.PAD_LEFT - priceRangeRef.current.PAD_RIGHT
+
+        const pricePerPx = (maxPrice - minPrice) / viewRef.current.scaleY / chartH
+        const idxPerPx = (maxIdx - minIdx) / viewRef.current.scaleX / chartW
+
+        viewRef.current = {
+          ...viewRef.current,
+          offsetX: panRef.current.startOffsetX - dx * idxPerPx,
+          offsetY: panRef.current.startOffsetY + dy * pricePerPx,
+        }
       }
 
       redrawMainChart()
@@ -322,7 +333,7 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
     const zoomFactor = e.deltaY < 0 ? 1.12 : 0.90
     viewRef.current = {
       ...viewRef.current,
-      scaleY: Math.max(0.15, Math.min(20, viewRef.current.scaleY * zoomFactor)),
+      scaleX: Math.max(0.15, Math.min(20, viewRef.current.scaleX * zoomFactor)),
     }
     redrawMainChart()
     drawOverlay()
@@ -355,18 +366,20 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
     ctx.fillStyle = '#ffffff'
     ctx.fillRect(0, 0, W, H)
 
-    const PAD_LEFT = 60
-    const PAD_RIGHT = 110
+    const PAD_LEFT = 20
+    const PAD_RIGHT = 80
     const PAD_TOP = 40
     const PAD_BOTTOM = 55
     const chartW = W - PAD_LEFT - PAD_RIGHT
     const chartH = H - PAD_TOP - PAD_BOTTOM
 
-    const points = priceHistory || []
+    const points = isRealMarket ? candles : (priceHistory || [])
     const total = points.length
 
     const allPrices = [
-      ...points.map(p => p.price),
+      ...(!isRealMarket ? points.map(p => p.price) : []),
+      ...(isRealMarket ? points.map(c => c.high) : []),
+      ...(isRealMarket ? points.map(c => c.low) : []),
       ...(orderBook?.bids || []).map(b => parseInt(b.price)),
       ...(orderBook?.asks || []).map(a => parseInt(a.price)),
       Math.round(currentPrice),
@@ -427,17 +440,17 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
       ctx.stroke()
     }
 
-    // VOLUME ZONES > 100
+    // VOLUME ZONES > 400 (only show exceptional walls, not auto-injected liquidity)
     const bids = orderBook?.bids || []
     const asks = orderBook?.asks || []
 
     asks.forEach(a => {
       const price = parseInt(a.price)
       const qty = a.qty
-      if (!price || !qty || qty <= 100) return
+      if (!price || !qty || qty <= 400) return
       const y = toY(price)
-      const intensity = Math.min((qty - 100) / 100, 1)
-      const zoneH = 12 + intensity * 16
+      const intensity = Math.min((qty - 400) / 200, 1)
+      const zoneH = 10 + intensity * 14
       const grad = ctx.createLinearGradient(PAD_LEFT, 0, PAD_LEFT + chartW, 0)
       grad.addColorStop(0, `rgba(239,68,68,${0.10 + intensity * 0.08})`)
       grad.addColorStop(1, `rgba(239,68,68,0.01)`)
@@ -456,10 +469,10 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
     bids.forEach(b => {
       const price = parseInt(b.price)
       const qty = b.qty
-      if (!price || !qty || qty <= 100) return
+      if (!price || !qty || qty <= 400) return
       const y = toY(price)
-      const intensity = Math.min((qty - 100) / 100, 1)
-      const zoneH = 12 + intensity * 16
+      const intensity = Math.min((qty - 400) / 200, 1)
+      const zoneH = 10 + intensity * 14
       const grad = ctx.createLinearGradient(PAD_LEFT, 0, PAD_LEFT + chartW, 0)
       grad.addColorStop(0, `rgba(59,130,246,${0.10 + intensity * 0.08})`)
       grad.addColorStop(1, `rgba(59,130,246,0.01)`)
@@ -476,7 +489,7 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
     })
 
     // AREA FILL
-    if (points.length >= 1) {
+    if (!isRealMarket && points.length >= 1) {
       ctx.beginPath()
       if (points.length === 1) {
         const x = toX(0)
@@ -502,7 +515,7 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
     }
 
     // LINE
-    if (points.length > 1) {
+    if (!isRealMarket && points.length > 1) {
       ctx.beginPath()
       ctx.moveTo(toX(0), toY(points[0].price))
       points.forEach((p, i) => {
@@ -515,90 +528,212 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
       ctx.stroke()
     }
 
-    // DOTS
-    points.forEach((p, i) => {
-      const x = toX(i)
-      const y = toY(p.price)
-      const isBuy = p.side === 'BUY'
-      const color = isBuy ? '#3b82f6' : '#ef4444'
-      const isLast = i === total - 1
+    // DOTS OR CANDLES
+    if (!isRealMarket) {
+      points.forEach((p, i) => {
+        const x = toX(i)
+        const y = toY(p.price)
+        const isBuy = p.side === 'BUY'
+        const color = isBuy ? '#3b82f6' : '#ef4444'
+        const isLast = i === total - 1
 
-      if (isLast) {
+        if (isLast) {
+          ctx.beginPath()
+          ctx.arc(x, y, 12, 0, Math.PI * 2)
+          ctx.fillStyle = isBuy ? 'rgba(59,130,246,0.08)' : 'rgba(239,68,68,0.08)'
+          ctx.fill()
+        }
         ctx.beginPath()
-        ctx.arc(x, y, 12, 0, Math.PI * 2)
-        ctx.fillStyle = isBuy ? 'rgba(59,130,246,0.08)' : 'rgba(239,68,68,0.08)'
+        ctx.arc(x, y, 8, 0, Math.PI * 2)
+        ctx.fillStyle = isBuy ? 'rgba(59,130,246,0.14)' : 'rgba(239,68,68,0.14)'
         ctx.fill()
-      }
-      ctx.beginPath()
-      ctx.arc(x, y, 8, 0, Math.PI * 2)
-      ctx.fillStyle = isBuy ? 'rgba(59,130,246,0.14)' : 'rgba(239,68,68,0.14)'
-      ctx.fill()
-      ctx.beginPath()
-      ctx.arc(x, y, isLast ? 6 : 5, 0, Math.PI * 2)
-      ctx.fillStyle = color
-      ctx.shadowColor = color
-      ctx.shadowBlur = isLast ? 10 : 4
-      ctx.fill()
-      ctx.shadowBlur = 0
-      ctx.beginPath()
-      ctx.arc(x, y, isLast ? 2.5 : 2, 0, Math.PI * 2)
-      ctx.fillStyle = '#ffffff'
-      ctx.fill()
+        ctx.beginPath()
+        ctx.arc(x, y, isLast ? 6 : 5, 0, Math.PI * 2)
+        ctx.fillStyle = color
+        ctx.shadowColor = color
+        ctx.shadowBlur = isLast ? 10 : 4
+        ctx.fill()
+        ctx.shadowBlur = 0
+        ctx.beginPath()
+        ctx.arc(x, y, isLast ? 2.5 : 2, 0, Math.PI * 2)
+        ctx.fillStyle = '#ffffff'
+        ctx.fill()
 
-      ctx.fillStyle = color
-      ctx.font = 'bold 11px DM Mono, monospace'
-      ctx.textAlign = 'center'
-      ctx.fillText(Math.round(p.price), x, y - 16)
-    })
+        ctx.fillStyle = color
+        ctx.font = 'bold 11px DM Mono, monospace'
+        ctx.textAlign = 'center'
+        ctx.fillText(Math.round(p.price), x, y - 16)
+      })
+    } else {
+      const visibleRange = Math.max(effMaxIdx - effMinIdx, 1)
+      const candleW = Math.max((chartW / Math.max(visibleRange, 10)) * 0.6, 2)
+      const bodyBorderWidth = 1
+      points.forEach((c, i) => {
+        const x = Math.floor(toX(i))
+        const openY = toY(c.open)
+        const closeY = toY(c.close)
+        const highY = toY(c.high)
+        const lowY = toY(c.low)
+        const isBull = c.close >= c.open
+        const color = isBull ? '#10b981' : '#ef4444' // green or red
+        
+        ctx.strokeStyle = color
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(x, highY)
+        ctx.lineTo(x, Math.min(openY, closeY))
+        ctx.stroke()
+        
+        ctx.beginPath()
+        ctx.moveTo(x, Math.max(openY, closeY))
+        ctx.lineTo(x, lowY)
+        ctx.stroke()
+
+        const bodyY = Math.min(openY, closeY)
+        const bodyH = Math.max(Math.abs(openY - closeY), 1)
+        
+        ctx.fillStyle = color
+        ctx.fillRect(x - candleW/2, bodyY, candleW, bodyH)
+      })
+      
+      const currY = toY(currentPrice)
+      ctx.strokeStyle = '#3b82f6'
+      ctx.setLineDash([4, 4])
+      ctx.beginPath()
+      ctx.moveTo(PAD_LEFT, currY)
+      ctx.lineTo(PAD_LEFT + chartW, currY)
+      ctx.stroke()
+      ctx.setLineDash([])
+    }
 
     ctx.restore() // remove clip
 
-    // Y axis labels
+    // CONDITION ANNOTATIONS (arrows, labels, anchor line)
+    if (isRealMarket) {
+      if (conditionAnchorPrice) {
+        const ay = toY(conditionAnchorPrice)
+        
+        ctx.save()
+        // LIQUIDITY ZONE (Subtle Fill)
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.04)' // Dark slate
+        ctx.fillRect(PAD_LEFT, ay - 8, chartW, 16)
+        
+        // THE RECTANGULAR BOX (Liquidity Zone)
+        ctx.save()
+        ctx.fillStyle = 'rgba(38, 166, 154, 0.05)' // Subtle teal zone
+        const zoneH = 30
+        ctx.fillRect(PAD_LEFT, ay - zoneH/2, chartW, zoneH)
+        
+        ctx.strokeStyle = 'rgba(38, 166, 154, 0.2)'
+        ctx.lineWidth = 1
+        ctx.strokeRect(PAD_LEFT, ay - zoneH/2, chartW, zoneH)
+
+        // VISUAL ORDER CLUSTER (Depth Bars)
+        // Shows the actual volume of orders sitting in the zone
+        const isConsumed = (conditionPhase === 'reversal' || conditionPhase === 'done')
+        const zoneTopPrice = conditionAnchorPrice + 15
+        const zoneBottomPrice = conditionAnchorPrice - 15
+        const relevantLevels = [...orderBook.bids, ...orderBook.asks].filter(
+          l => l.price >= zoneBottomPrice && l.price <= zoneTopPrice
+        )
+        
+        relevantLevels.forEach(level => {
+          const ly = toY(level.price)
+          const barW = Math.min(level.qty / 5, 120) // Scale qty to visual bars
+          const baseColor = isConsumed ? 'rgba(100, 116, 139, 0.1)' : 'rgba(38, 166, 154, 0.15)'
+          ctx.fillStyle = (!isConsumed && level.qty > 500) ? 'rgba(38, 166, 154, 0.4)' : baseColor
+          ctx.fillRect(PAD_LEFT + chartW - barW, ly - 2, barW, 4)
+        })
+
+        // THE BLACK LINE (Liquidity Pool)
+        ctx.strokeStyle = isConsumed ? 'rgba(15, 23, 42, 0.2)' : '#0f172a'
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.moveTo(PAD_LEFT, ay)
+        ctx.lineTo(PAD_LEFT + chartW, ay)
+        ctx.stroke()
+        
+        // LABEL
+        ctx.font = 'bold 10px DM Sans, sans-serif'
+        ctx.fillStyle = isConsumed ? 'rgba(15, 23, 42, 0.4)' : '#0f172a'
+        ctx.textAlign = 'right'
+        ctx.fillText(isConsumed ? 'LIQUIDITY CONSUMED' : 'LIQUIDITY CLUSTER', PAD_LEFT + chartW - 10, ay - zoneH/2 - 5)
+        ctx.restore()
+      }
+      conditionArrows.forEach(arrow => {
+        const y = toY(arrow.price)
+        const candleX = Math.max(effMinIdx, Math.min(arrow.candleIdx, effMaxIdx))
+        const x = toX(candleX)
+        ctx.save()
+        ctx.fillStyle = arrow.color
+        // Triangle arrow pointing up at the price
+        ctx.beginPath()
+        ctx.moveTo(x, y)
+        ctx.lineTo(x - 7, y - 14)
+        ctx.lineTo(x + 7, y - 14)
+        ctx.closePath()
+        ctx.fill()
+        // Label badge background
+        ctx.font = 'bold 10px DM Sans, sans-serif'
+        const tw = ctx.measureText(arrow.label).width
+        ctx.fillStyle = arrow.color
+        ctx.globalAlpha = 0.88
+        ctx.beginPath()
+        if (ctx.roundRect) ctx.roundRect(x - tw/2 - 6, y - 32, tw + 12, 15, 3)
+        else ctx.rect(x - tw/2 - 6, y - 32, tw + 12, 15)
+        ctx.fill()
+        // Label text
+        ctx.globalAlpha = 1
+        ctx.fillStyle = '#fff'
+        ctx.textAlign = 'center'
+        ctx.fillText(arrow.label, x, y - 21)
+        ctx.restore()
+      })
+    }
+
+
     for (let p = firstLabel; p <= effMax; p += step) {
       const y = toY(p)
       if (y < PAD_TOP || y > PAD_TOP + chartH) continue
       ctx.fillStyle = '#94a3b8'
       ctx.font = '11px DM Mono, monospace'
-      ctx.textAlign = 'right'
-      ctx.fillText(Math.round(p), PAD_LEFT - 8, y + 4)
+      ctx.textAlign = 'left'
+      ctx.fillText(Math.round(p), PAD_LEFT + chartW + 8, y + 4)
     }
 
     // X axis labels
-    points.forEach((p, i) => {
-      const x = toX(i)
-      if (x < PAD_LEFT || x > PAD_LEFT + chartW) return
-      ctx.fillStyle = '#94a3b8'
-      ctx.font = '10px DM Sans, monospace'
-      ctx.textAlign = 'center'
-      ctx.fillText(`#${i + 1}`, x, PAD_TOP + chartH + 18)
-      ctx.fillStyle = p.side === 'BUY' ? 'rgba(59,130,246,0.6)' : 'rgba(239,68,68,0.6)'
-      ctx.font = '9px DM Sans, monospace'
-      ctx.fillText(p.type === 'MARKET' ? 'MKT' : 'LMT', x, PAD_TOP + chartH + 32)
-    })
+    if (!isRealMarket) {
+      points.forEach((p, i) => {
+        const x = toX(i)
+        if (x < PAD_LEFT || x > PAD_LEFT + chartW) return
+        ctx.fillStyle = '#94a3b8'
+        ctx.font = '10px DM Sans, monospace'
+        ctx.textAlign = 'center'
+        ctx.fillText(`#${i + 1}`, x, PAD_TOP + chartH + 18)
+        ctx.fillStyle = p.side === 'BUY' ? 'rgba(59,130,246,0.6)' : 'rgba(239,68,68,0.6)'
+        ctx.font = '9px DM Sans, monospace'
+        ctx.fillText(p.type === 'MARKET' ? 'MKT' : 'LMT', x, PAD_TOP + chartH + 32)
+      })
+    } else {
+      points.forEach((c, i) => {
+        const x = toX(i)
+        if (x < PAD_LEFT || x > PAD_LEFT + chartW) return
+        
+        const date = new Date(c.startTime)
+        const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}:${date.getSeconds().toString().padStart(2, '0')}`
+        
+        ctx.fillStyle = '#94a3b8'
+        ctx.font = '9px DM Sans, monospace'
+        ctx.textAlign = 'center'
+        const visibleRange = Math.max(effMaxIdx - effMinIdx, 1)
+        if (visibleRange < 15 || i % Math.ceil(visibleRange / 8) === 0) {
+          ctx.fillText(timeStr, x, PAD_TOP + chartH + 18)
+        }
+      })
+    }
 
-    // Volume zone right labels
-    asks.forEach(a => {
-      const price = parseInt(a.price)
-      const qty = a.qty
-      if (!price || !qty || qty <= 100) return
-      const y = toY(price)
-      if (y < PAD_TOP || y > PAD_TOP + chartH) return
-      ctx.fillStyle = `rgba(239,68,68,0.85)`
-      ctx.font = 'bold 10px DM Mono, monospace'
-      ctx.textAlign = 'left'
-      ctx.fillText(`ASK ${price}  ×${qty}`, PAD_LEFT + chartW + 6, y + 4)
-    })
-    bids.forEach(b => {
-      const price = parseInt(b.price)
-      const qty = b.qty
-      if (!price || !qty || qty <= 100) return
-      const y = toY(price)
-      if (y < PAD_TOP || y > PAD_TOP + chartH) return
-      ctx.fillStyle = `rgba(59,130,246,0.85)`
-      ctx.font = 'bold 10px DM Mono, monospace'
-      ctx.textAlign = 'left'
-      ctx.fillText(`BID ${price}  ×${qty}`, PAD_LEFT + chartW + 6, y + 4)
-    })
+    // Volume zone right labels removed to prevent overlapping with price axis.
+    // Order quantity density visible cleanly within the orderbook side table.
 
     // AXES
     ctx.strokeStyle = '#e2e8f0'
@@ -614,10 +749,12 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
       ctx.fillStyle = '#cbd5e1'
       ctx.font = '500 13px DM Sans, sans-serif'
       ctx.textAlign = 'center'
-      ctx.fillText('Generate orders and click ▶ Run to see price movement', W / 2 - PAD_RIGHT / 2, H / 2 - 10)
+      ctx.fillText(isRealMarket 
+        ? 'Set Starting Price and click ▶ Play to simulate real market'
+        : 'Generate orders and click ▶ Run to see price movement', W / 2 - PAD_RIGHT / 2, H / 2 - 10)
       ctx.font = '12px DM Sans, sans-serif'
       ctx.fillStyle = '#e2e8f0'
-      ctx.fillText('Each executed order creates a price dot on the chart', W / 2 - PAD_RIGHT / 2, H / 2 + 12)
+      ctx.fillText(isRealMarket ? 'Candles will appear as orders are executed automatically' : 'Each executed order creates a price dot on the chart', W / 2 - PAD_RIGHT / 2, H / 2 + 12)
     }
 
     ctx.fillStyle = 'rgba(226,232,240,0.5)'
@@ -625,7 +762,7 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
     ctx.textAlign = 'left'
     ctx.fillText('MKT/SIM · EXECUTION CHART', PAD_LEFT + 8, PAD_TOP - 14)
 
-  }, [priceHistory, currentPrice, orderBook])
+  }, [priceHistory, currentPrice, orderBook, isRealMarket, candles, conditionArrows, conditionAnchorPrice])
 
   useEffect(() => {
     redrawMainChart()
@@ -655,10 +792,11 @@ export default function PriceChart({ priceHistory, currentPrice, orderBook }) {
           {Math.round(currentPrice)}
         </span>
 
-        {priceHistory.length > 1 && (() => {
-          const diff = Math.round(priceHistory[priceHistory.length - 1].price)
-            - Math.round(priceHistory[0].price)
-          const pct = ((diff / Math.round(priceHistory[0].price)) * 100).toFixed(1)
+        {(isRealMarket ? candles.length > 0 : priceHistory.length > 1) && (() => {
+          const firstPrice = isRealMarket ? candles[0].open : Math.round(priceHistory[0].price)
+          const lastPrice = isRealMarket ? candles[candles.length - 1].close : Math.round(priceHistory[priceHistory.length - 1].price)
+          const diff = lastPrice - firstPrice
+          const pct = firstPrice ? ((diff / firstPrice) * 100).toFixed(1) : 0
           const up = diff >= 0
           return (
             <span style={{

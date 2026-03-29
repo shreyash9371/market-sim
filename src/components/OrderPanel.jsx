@@ -1,6 +1,6 @@
-export default function OrderPanel({ open, orders, selectedOrder, onSelectOrder, onClose }) {
+export default function OrderPanel({ open, orders, executionCount, selectedOrder, onSelectOrder, onClose, candleTickCount }) {
   const pending = orders.filter(o => o.status === 'PENDING').length
-  const executed = orders.filter(o => o.status === 'EXECUTED').length
+  const executedDisplay = orders.filter(o => o.status === 'EXECUTED').length
 
   return (
     <div style={{
@@ -48,30 +48,28 @@ export default function OrderPanel({ open, orders, selectedOrder, onSelectOrder,
         </div>
 
         {/* Stats row */}
-        {orders.length > 0 && (
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <div style={{
-              flex: 1,
-              background: 'rgba(59,130,246,0.07)',
-              borderRadius: '8px',
-              padding: '6px 10px',
-              textAlign: 'center',
-            }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-blue)', fontFamily: 'var(--font-mono)' }}>{pending}</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending</div>
-            </div>
-            <div style={{
-              flex: 1,
-              background: 'rgba(16,185,129,0.07)',
-              borderRadius: '8px',
-              padding: '6px 10px',
-              textAlign: 'center',
-            }}>
-              <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-green)', fontFamily: 'var(--font-mono)' }}>{executed}</div>
-              <div style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Executed</div>
-            </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{
+            flex: 1,
+            background: 'rgba(59,130,246,0.07)',
+            borderRadius: '8px',
+            padding: '6px 10px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-blue)', fontFamily: 'var(--font-mono)' }}>{pending}</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Pending</div>
           </div>
-        )}
+          <div style={{
+            flex: 1,
+            background: 'rgba(16,185,129,0.07)',
+            borderRadius: '8px',
+            padding: '6px 10px',
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent-green)', fontFamily: 'var(--font-mono)' }}>{executionCount || executedDisplay}</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Executed</div>
+          </div>
+        </div>
       </div>
 
       {/* Order list */}
@@ -170,12 +168,25 @@ export default function OrderPanel({ open, orders, selectedOrder, onSelectOrder,
                 )}
 
                 {isSelected && !isExecuted && (
-                  <span style={{
+                  <div style={{
                     marginLeft: 'auto',
-                    fontSize: '10px',
-                    color: 'var(--accent-blue)',
-                    fontWeight: 700,
-                  }}>● SELECTED</span>
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <div style={{
+                      background: 'var(--bg-card)', color: 'var(--text-secondary)',
+                      padding: '4px 8px', borderRadius: '6px', fontSize: '11px',
+                      fontWeight: 600, border: '1px solid var(--border)'
+                    }}>
+                      Ticks: {candleTickCount}/24
+                    </div>
+                    <span style={{
+                      fontSize: '10px',
+                      color: 'var(--accent-blue)',
+                      fontWeight: 700,
+                    }}>● SELECTED</span>
+                  </div>
                 )}
               </div>
 

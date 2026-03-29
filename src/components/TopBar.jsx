@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useMarketStore } from '../store/useMarketStore'
 
 export default function TopBar({
   onTogglePanel, onGenerate,
@@ -6,6 +7,10 @@ export default function TopBar({
   onBack, onForward, canGoBack, canGoForward,
 }) {
   const [editedOrder, setEditedOrder] = useState(null)
+  const [startPriceInput, setStartPriceInput] = useState('')
+  const [condMenuOpen, setCondMenuOpen] = useState(false)
+  const condMenuRef = useRef(null)
+  const store = useMarketStore()
 
   useEffect(() => {
     if (selectedOrder) {
@@ -57,8 +62,10 @@ export default function TopBar({
 
       <div style={{ width: '1px', height: '32px', background: 'var(--border)' }} />
 
-      {/* Back / Forward */}
-      <div style={{ display: 'flex', gap: '6px' }}>
+      {!store.isRealMarket ? (
+        <>
+          {/* Back / Forward */}
+          <div style={{ display: 'flex', gap: '6px' }}>
         <button
           onClick={onBack}
           disabled={!canGoBack}
@@ -271,15 +278,175 @@ export default function TopBar({
           Select an order to execute…
         </span>
       )}
+        </>
+      ) : (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flex: 1 }}>
+            <button onClick={onTogglePanel} style={{
+              background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+              color: 'var(--text-primary)', fontSize: '13px', fontWeight: 600,
+              padding: '6px 12px', borderRadius: '6px', cursor: 'pointer',
+              transition: 'all 0.2s', whiteSpace: 'nowrap',
+            }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = 'var(--accent-blue)'
+                e.currentTarget.style.color = 'var(--accent-blue)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = 'var(--border)'
+                e.currentTarget.style.color = 'var(--text-primary)'
+              }}
+            >
+              ☰ Orders
+            </button>
+            <div style={{ width: '1px', height: '24px', background: 'var(--border)' }} />
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <input 
+                type="text" 
+                placeholder="Start Price..." 
+                value={startPriceInput} 
+                onChange={e => setStartPriceInput(e.target.value)}
+                style={{
+                  width: '90px', fontSize: '13px', padding: '6px 10px',
+                  borderRadius: '6px', border: '1.5px solid var(--border)'
+                }}
+              />
+              <button 
+                onClick={() => {
+                  if (startPriceInput) store.setStartingPrice(startPriceInput)
+                }}
+                style={{
+                  background: 'var(--bg-card)', border: '1.5px solid var(--border)',
+                  padding: '6px 12px', borderRadius: '6px', cursor: 'pointer',
+                  fontSize: '13px', fontWeight: 600, color: 'var(--text-primary)'
+                }}
+              >Set</button>
+            </div>
+
+            <div style={{ width: '1px', height: '24px', background: 'var(--border)' }} />
+
+            <button 
+              onClick={() => store.setPlaying(!store.playbackPlaying)}
+              style={{
+                background: store.playbackPlaying ? 'var(--accent-red)' : 'var(--accent-green)',
+                color: '#fff', border: 'none', padding: '8px 24px',
+                borderRadius: '8px', cursor: 'pointer', fontWeight: 700,
+                fontSize: '14px', width: '90px'
+              }}
+            >
+              {store.playbackPlaying ? '⏸ Pause' : '▶ Play'}
+            </button>
+
+            {/* Teaching Mode: Phase & Trade Indicator */}
+            {(store.marketCondition || store.playbackPlaying) && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '12px' }}>
+                {store.marketCondition && (
+                  <div style={{
+                    background: 'rgba(124,58,237,0.1)', color: '#7c3aed',
+                    padding: '4px 10px', borderRadius: '6px', fontSize: '11px',
+                    fontWeight: 800, border: '1px solid rgba(124,58,237,0.2)',
+                    textTransform: 'uppercase', letterSpacing: '0.5px'
+                  }}>
+                    {store.conditionPhase?.replace('_', ' ') || 'Searching'}
+                  </div>
+                )}
+                <div style={{
+                  background: 'var(--bg-card)', color: 'var(--text-secondary)',
+                  padding: '4px 8px', borderRadius: '6px', fontSize: '11px',
+                  fontWeight: 600, border: '1px solid var(--border)'
+                }}>
+                  Ticks: {store.candleTickCount}/24
+                </div>
+              </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '12px' }}>
+              <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Speed {store.playbackSpeed}x</span>
+              <input 
+                type="range" min="1" max="10" step="1"
+                value={store.playbackSpeed}
+                onChange={e => store.setPlaybackSpeed(Number(e.target.value))}
+                style={{ width: '100px', cursor: 'pointer' }}
+              />
+            </div>
+
+            {/* Market Condition Selector */}
+            <div ref={condMenuRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setCondMenuOpen(o => !o)}
+                style={{
+                  background: store.marketCondition ? '#7c3aed' : 'var(--bg-card)',
+                  border: `1.5px solid ${store.marketCondition ? '#7c3aed' : 'var(--border)'}`,
+                  color: store.marketCondition ? '#fff' : 'var(--text-primary)',
+                  fontSize: '12px', fontWeight: 700,
+                  padding: '6px 12px', borderRadius: '6px',
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                  transition: 'all 0.2s',
+                }}
+              >
+                🎭 {store.marketCondition === 'liq_sweep' ? 'Liq Sweep' : store.marketCondition === 'stop_hunt' ? 'Stop Hunt' : 'Condition'}
+              </button>
+              {condMenuOpen && (
+                <div style={{
+                  position: 'absolute', top: '110%', left: 0, zIndex: 200,
+                  background: 'var(--bg-panel)', border: '1.5px solid var(--border)',
+                  borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  minWidth: '160px', overflow: 'hidden',
+                }}>
+                  {[['none', '🎲 Normal', null], ['liq_sweep', '🏦 Liq Sweep', 'liq_sweep'], ['stop_hunt', '🎯 Stop Hunt', 'stop_hunt']].map(([id, label, val]) => (
+                    <button key={id} onClick={() => { store.setMarketCondition(val); setCondMenuOpen(false) }}
+                      style={{
+                        display: 'block', width: '100%', padding: '10px 16px',
+                        background: store.marketCondition === val ? 'rgba(124,58,237,0.08)' : 'transparent',
+                        border: 'none', textAlign: 'left', cursor: 'pointer',
+                        fontSize: '13px', fontWeight: 600,
+                        color: store.marketCondition === val ? '#7c3aed' : 'var(--text-primary)',
+                        borderBottom: id !== 'stop_hunt' ? '1px solid var(--border)' : 'none',
+                        transition: 'background 0.15s',
+                      }}
+                    >{label}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div style={{ flex: 1 }} />
+          </div>
+        </>
+      )}
 
       <div style={{ flex: 1 }} />
 
-      {/* Status pill */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: '8px',
-        background: '#ecfdf5', border: '1.5px solid #a7f3d0',
-        borderRadius: '999px', padding: '6px 16px', flexShrink: 0,
-      }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Real Market</span>
+          <button 
+            onClick={() => store.toggleRealMarket()}
+            style={{
+              width: '36px', height: '20px', borderRadius: '10px',
+              background: store.isRealMarket ? 'var(--accent-green)' : 'var(--bg-card)',
+              border: `1.5px solid ${store.isRealMarket ? 'var(--accent-green)' : 'var(--border)'}`,
+              position: 'relative', cursor: 'pointer', transition: 'all 0.2s'
+            }}
+          >
+            <div style={{
+              position: 'absolute', top: '2px', left: store.isRealMarket ? '16px' : '2px',
+              width: '12px', height: '12px', borderRadius: '50%',
+              background: store.isRealMarket ? '#fff' : 'var(--text-dim)',
+              transition: 'all 0.2s'
+            }} />
+          </button>
+        </div>
+
+        <div style={{ width: '1px', height: '24px', background: 'var(--border)' }} />
+
+        {/* Status pill */}
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '8px',
+          background: '#ecfdf5', border: '1.5px solid #a7f3d0',
+          borderRadius: '999px', padding: '6px 16px', flexShrink: 0,
+        }}>
         <div style={{
           width: '8px', height: '8px', borderRadius: '50%',
           background: 'var(--accent-green)', boxShadow: '0 0 6px #10b981',
@@ -288,6 +455,7 @@ export default function TopBar({
         <span style={{ fontSize: '13px', fontWeight: 600, color: '#059669' }}>
           Market Open
         </span>
+        </div>
       </div>
 
       <style>{`

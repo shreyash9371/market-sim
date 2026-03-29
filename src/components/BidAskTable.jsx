@@ -184,6 +184,9 @@ export default function BidAskTable({ orderBook, onGenerate, onUpdateLevel }) {
         ))}
       </div>
 
+      {/* Scrollable combined book */}
+      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+
       {/* Ask rows — shown top (high to low reversed for display) */}
       <div style={{
         borderBottom: '2px solid var(--border)',
@@ -259,7 +262,7 @@ export default function BidAskTable({ orderBook, onGenerate, onUpdateLevel }) {
       </div>
 
       {/* Bid rows */}
-      <div style={{ flex: 1, overflowY: 'auto' }}>
+      <div>
         {displayBids.map((bid, i) => {
           const bidPct = bid.qty ? (bid.qty / maxQty) * 44 : 0
           const isHighVol = bid.qty > 50
@@ -304,6 +307,7 @@ export default function BidAskTable({ orderBook, onGenerate, onUpdateLevel }) {
           )
         })}
       </div>
+      </div> {/* end scroll container */}
 
       {/* Generate button */}
       <div style={{ padding: '12px 14px', flexShrink: 0 }}>

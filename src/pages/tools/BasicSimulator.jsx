@@ -5,13 +5,22 @@ import TopBar from '../../components/TopBar'
 import OrderPanel from '../../components/OrderPanel'
 import PriceChart from '../../components/PriceChart'
 import BidAskTable from '../../components/BidAskTable'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function BasicSimulator() {
   const [panelOpen, setPanelOpen] = useState(false)
   const store = useMarketStore()
   const auth = useAuthStore()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!store.isRealMarket || !store.playbackPlaying) return
+    const intervalTime = Math.max(50, 2000 / store.playbackSpeed)
+    const timer = setInterval(() => {
+      store.tickRealMarket()
+    }, intervalTime)
+    return () => clearInterval(timer)
+  }, [store.isRealMarket, store.playbackPlaying, store.playbackSpeed])
 
   const firstName = auth.user?.user_metadata?.first_name || 'Trader'
 
@@ -21,6 +30,13 @@ export default function BasicSimulator() {
     store.generateOrders()
     setPanelOpen(true)
   }
+
+  // Force open panel in real market mode to show execution
+  useEffect(() => {
+    if (store.isRealMarket) {
+      setPanelOpen(true)
+    }
+  }, [store.isRealMarket])
 
   return (
     <div className="simulator-root" style={{
@@ -130,9 +146,11 @@ export default function BasicSimulator() {
         <OrderPanel
           open={panelOpen}
           orders={store.orders}
+          executionCount={store.executionCount}
           selectedOrder={store.selectedOrder}
           onSelectOrder={store.selectOrder}
           onClose={() => setPanelOpen(false)}
+          candleTickCount={store.candleTickCount}
         />
 
         <div style={{
@@ -147,6 +165,11 @@ export default function BasicSimulator() {
             priceHistory={store.priceHistory}
             currentPrice={store.currentPrice}
             orderBook={store.orderBook}
+            isRealMarket={store.isRealMarket}
+            candles={store.candles}
+            conditionArrows={store.conditionArrows || []}
+            conditionAnchorPrice={store.conditionAnchorPrice}
+            conditionPhase={store.conditionPhase}
           />
         </div>
 
