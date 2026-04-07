@@ -195,7 +195,7 @@ function CustomDatePicker({ value, onChange, placeholder = "Select Date" }) {
 }
 
 // ── MAIN STATISTICS COMPONENT ──
-export default function TradingStatistics({ trades, tod, firstName }) {
+export default function TradingStatistics({ trades, tod, firstName, onTradeClick }) {
   const [selectedDate, setSelectedDate] = useState(null)
   const [showScoreInfo, setShowScoreInfo] = useState(false)
   const tradesListRef = useRef(null)
@@ -413,6 +413,8 @@ export default function TradingStatistics({ trades, tod, firstName }) {
     const totalLotSize = closed.reduce((acc, t) => acc + (parseFloat(t.lots) || 0), 0);
     const avgLotSize = closed.length ? parseFloat((totalLotSize / closed.length).toFixed(2)) : 0;
 
+    const totalCommissions = closed.reduce((acc, t) => acc + (Number(t.commissions) || 0), 0);
+
     return {
       closed, wins, losses,
       totalPnl, profitFactor, winRate, expectancy,
@@ -420,7 +422,7 @@ export default function TradingStatistics({ trades, tod, firstName }) {
       calendarDays, weeklySummary,
       equityData, radarData, overallScore,
       avgWinSize, avgLossSize, biggestWin, biggestLoss,
-      grossProfit, grossLoss, avgDurationStr, avgLotSize
+      grossProfit, grossLoss, avgDurationStr, avgLotSize, totalCommissions
     }
   }, [filteredTrades, initialBalance, calendarAnchorDate, winRateMode])
 
@@ -458,7 +460,7 @@ export default function TradingStatistics({ trades, tod, firstName }) {
       </div>
 
       {/* ── TOP 5 METRICS ROW ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '14px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '14px' }}>
 
         {/* Account Balance */}
         <div style={{ background: 'var(--bg-panel)', borderRadius: '16px', border: '1px solid var(--border)', padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', transition: 'all 0.2s ease', cursor: 'pointer' }}
@@ -499,6 +501,17 @@ export default function TradingStatistics({ trades, tod, firstName }) {
             {stats.totalPnl > 0 ? '+' : stats.totalPnl < 0 ? '-' : ''}${Math.abs(stats.totalPnl).toFixed(2)}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--text-dim)', marginTop: '5px' }}>{stats.closed.length} closed trades</div>
+        </div>
+
+        {/* Total Commissions */}
+        <div style={{ background: 'var(--bg-panel)', borderRadius: '16px', border: '1px solid var(--border)', padding: '16px 20px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.6px' }}>Commissions</div>
+            <div style={{ fontSize: '10px', color: 'var(--text-dim)' }}>paid</div>
+          </div>
+          <div style={{ fontSize: '22px', fontWeight: 700, color: 'var(--accent-red)', lineHeight: 1 }}>
+            -${(stats.totalCommissions || 0).toFixed(2)}
+          </div>
         </div>
 
         <div style={{ background: 'var(--bg-panel)', borderRadius: '16px', border: '1px solid var(--border)', padding: '16px 20px' }}>
@@ -1019,19 +1032,21 @@ export default function TradingStatistics({ trades, tod, firstName }) {
                   <th style={{ padding: '10px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Asset</th>
                   <th style={{ padding: '10px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Type</th>
                   <th style={{ padding: '10px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Result</th>
+                  <th style={{ padding: '10px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Comms</th>
                   <th style={{ padding: '10px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>RR</th>
                   <th style={{ padding: '10px 16px', fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.5px', textAlign: 'right', borderRadius: '0 10px 10px 0' }}>P&L</th>
                 </tr>
               </thead>
               <tbody>
                 {dayTradesList.length === 0 ? (
-                  <tr><td colSpan="6" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '13px', fontWeight: 600 }}>No trades to display for this criteria.</td></tr>
+                  <tr><td colSpan="7" style={{ padding: '48px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '13px', fontWeight: 600 }}>No trades to display for this criteria.</td></tr>
                 ) : dayTradesList.map((t, idx) => {
                   const pnlVal = calcPnl(t)?.usd || 0
                   const isEven = idx % 2 === 0
                   return (
                     <tr key={idx}
-                      style={{ background: isEven ? 'transparent' : 'rgba(255,255,255,0.015)', borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }}
+                      style={{ background: isEven ? 'transparent' : 'rgba(255,255,255,0.015)', borderBottom: '1px solid var(--border)', transition: 'background 0.15s', cursor: 'pointer' }}
+                      onClick={() => onTradeClick && onTradeClick(t)}
                       onMouseEnter={e => e.currentTarget.style.background = 'rgba(59,130,246,0.04)'}
                       onMouseLeave={e => e.currentTarget.style.background = isEven ? 'transparent' : 'rgba(255,255,255,0.015)'}
                     >
@@ -1046,6 +1061,9 @@ export default function TradingStatistics({ trades, tod, firstName }) {
                         <Badge variant={getTradeResult(t) === 'Win' ? 'green' : getTradeResult(t) === 'Loss' ? 'red' : 'neutral'}>
                           {getTradeResult(t)}
                         </Badge>
+                      </td>
+                      <td style={{ padding: '13px 16px', fontSize: '12px', color: 'var(--accent-red)', fontWeight: 700 }}>
+                        {t.commissions ? '-$'+Number(t.commissions).toFixed(2) : '--'}
                       </td>
                       <td style={{ padding: '13px 16px', fontSize: '12px', color: 'var(--text-secondary)', fontWeight: 700 }}>{calcRR(t)}R</td>
                       <td style={{ padding: '13px 16px', textAlign: 'right' }}>

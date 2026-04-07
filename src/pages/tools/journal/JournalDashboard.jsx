@@ -15,7 +15,8 @@ import {
   DOW,
 } from '../../../utils/tradeMetrics'
 import TradingStatistics from './TradingStatistics'
-
+import TradeDetailsView from './TradeDetailsView'
+import LogTradeView from './LogTradeView'
 // ── HELPERS ───────────────────────────────────────────────────
 function today() {
   return new Date().toISOString().split('T')[0]
@@ -37,7 +38,7 @@ const ASSETS = [
 const emptyForm = {
   pair: '', dir: 'long', date: '', session: '',
   entry: '', exit: '', sl: '', tp: '',
-  lots: '0.10', pipval: '1.00', entryTime: '', exitTime: '', emotion: '', notes: '', images: [],
+  lots: '0.10', pipval: '1.00', commissions: '', entryTime: '', exitTime: '', exit_date: '', emotion: '', notes: '', images: [],
 }
 
 const MOTIVATIONAL_NOTES = [
@@ -496,6 +497,7 @@ export default function JournalDashboard() {
 
   // Theme Logic
   const [theme, setTheme] = useState(() => localStorage.getItem('mkt_sim_theme') || 'light')
+  const [selectedTradeDetail, setSelectedTradeDetail] = useState(null)
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme)
     localStorage.setItem('mkt_sim_theme', theme)
@@ -650,12 +652,14 @@ ${JSON.stringify(trades.map(t => {
         session: trade.session || '',
         entryTime: trade.entryTime || '',
         exitTime: trade.exitTime || '',
+        exit_date: trade.exit_date || '',
         entry: trade.entry.toString(),
         exit: trade.exit ? trade.exit.toString() : '',
         sl: trade.sl.toString(),
         tp: trade.tp.toString(),
         lots: trade.lots.toString(),
         pipval: trade.pipval.toString(),
+        commissions: trade.commissions ? trade.commissions.toString() : '',
         emotion: trade.emotion || '',
         notes: trade.notes || '',
         images: trade.images || [],
@@ -684,11 +688,13 @@ ${JSON.stringify(trades.map(t => {
       sl: parseFloat(form.sl), tp: parseFloat(form.tp),
       lots: parseFloat(form.lots) || 0.1,
       pipval: parseFloat(form.pipval) || 1,
+      commissions: Number(form.commissions) || 0,
       emotion: form.emotion, notes: form.notes.trim(),
       images: form.images || [],
     }
     newTrade['entryTime'] = form.entryTime || null
     newTrade['exitTime'] = form.exitTime || null
+    newTrade['exit_date'] = form.exit_date || null
 
     let savedData = null
 
@@ -809,7 +815,7 @@ ${JSON.stringify(trades.map(t => {
     if (dayStats[d].win > maxBarVal) maxBarVal = dayStats[d].win
     if (dayStats[d].loss > maxBarVal) maxBarVal = dayStats[d].loss
   })
-  const bestDay = DAYS.reduce((a, b) => dayStats[a].net >= dayStats[b].net ? a : b)
+  const bestDay = closed.length === 0 ? '-' : DAYS.reduce((a, b) => dayStats[a].net >= dayStats[b].net ? a : b)
 
   // Bias
   const longs = closed.filter(t => t.dir === 'long').length
@@ -963,11 +969,11 @@ ${JSON.stringify(trades.map(t => {
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '12px', paddingLeft: '16px' }}>
                 Menu
               </div>
-              <SidebarItem label="Dashboard" active={activeTab === 'Dashboard'} onClick={() => setActiveTab('Dashboard')} />
-              <SidebarItem label="Trading Statistics" active={activeTab === 'Trading Statistics'} onClick={() => setActiveTab('Trading Statistics')} />
-              <SidebarItem label="Strategy Enhancement" active={activeTab === 'Strategy Enhancement'} onClick={() => setActiveTab('Strategy Enhancement')} />
-              <SidebarItem label="Trading History" active={activeTab === 'Trading History'} onClick={() => setActiveTab('Trading History')} />
-              <SidebarItem label="Images of your trades" active={activeTab === 'Images of your trades'} onClick={() => setActiveTab('Images of your trades')} />
+              <SidebarItem label="Dashboard" active={activeTab === 'Dashboard' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Dashboard'); setSelectedTradeDetail(null); setShowModal(false); }} />
+              <SidebarItem label="Trading Statistics" active={activeTab === 'Trading Statistics' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Trading Statistics'); setSelectedTradeDetail(null); setShowModal(false); }} />
+              <SidebarItem label="Strategy Enhancement" active={activeTab === 'Strategy Enhancement' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Strategy Enhancement'); setSelectedTradeDetail(null); setShowModal(false); }} />
+              <SidebarItem label="Trading History" active={activeTab === 'Trading History' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Trading History'); setSelectedTradeDetail(null); setShowModal(false); }} />
+              <SidebarItem label="Images of your trades" active={activeTab === 'Images of your trades' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Images of your trades'); setSelectedTradeDetail(null); setShowModal(false); }} />
             </div>
 
           {/* Bottom Section: Theme & Support */}
@@ -1009,9 +1015,25 @@ ${JSON.stringify(trades.map(t => {
         <div style={{ flex: 1, marginLeft: '260px' }}>
           {/* ── BODY ── */}
           <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '36px 40px 60px' }}>
-
-            {/* Greeting */}
-            {activeTab === 'Dashboard' && (
+            {selectedTradeDetail ? (
+              <TradeDetailsView 
+                trade={selectedTradeDetail} 
+                onBack={() => setSelectedTradeDetail(null)} 
+                onEdit={(t) => { setSelectedTradeDetail(null); openModal(t); }} 
+                onDelete={(id) => { setSelectedTradeDetail(null); handleDeleteClick(id); }} 
+              />
+            ) : showModal ? (
+              <LogTradeView
+                form={form}
+                setForm={setForm}
+                onSubmit={submitTrade}
+                onCancel={() => setShowModal(false)}
+                editingTradeId={editingTradeId}
+              />
+            ) : (
+              <div style={{ display: 'contents' }}>
+                {/* Greeting */}
+                {activeTab === 'Dashboard' && (
               <>
                 <div style={{ marginBottom: '32px' }}>
                   <h1 style={{ fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-1px', marginBottom: '6px' }}>
@@ -1280,6 +1302,7 @@ ${JSON.stringify(trades.map(t => {
                         <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Result</th>
                         <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Entry / Exit</th>
                         <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Lot Size</th>
+                        <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Comms</th>
                         <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>RR</th>
                         <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase' }}>Duration</th>
                         <th style={{ padding: '16px 20px', fontSize: '11px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'uppercase', textAlign: 'right' }}>P/L</th>
@@ -1288,12 +1311,12 @@ ${JSON.stringify(trades.map(t => {
                     </thead>
                     <tbody>
                       {trades.length === 0 ? (
-                        <tr><td colSpan="8" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '14px' }}>No trades logged yet.</td></tr>
+                        <tr><td colSpan="9" style={{ padding: '24px', textAlign: 'center', color: 'var(--text-dim)', fontSize: '14px' }}>No trades logged yet.</td></tr>
                       ) : trades.slice().reverse().map(t => {
                         const pnl = calcPnl(t)
                         const pnlVal = pnl ? pnl.usd : null
                         return (
-                          <tr key={t.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                          <tr key={t.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background 0.2s', cursor: 'pointer' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'} onClick={() => setSelectedTradeDetail(t)}>
                             <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-primary)', fontFamily: 'var(--font-sans)' }}>{t.date}</td>
                             <td style={{ padding: '14px 20px', fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)' }}>{t.pair}</td>
                             <td style={{ padding: '14px 20px', fontSize: '13px' }}>
@@ -1353,6 +1376,7 @@ ${JSON.stringify(trades.map(t => {
                               {t.entryTime || '--:--'} <span style={{ color: 'var(--text-dim)' }}>→</span> {t.exitTime || '--:--'}
                             </td>
                             <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>{t.lots}</td>
+                            <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--accent-red)', fontFamily: 'var(--font-sans)' }}>{t.commissions ? '-$'+Number(t.commissions).toFixed(2) : '--'}</td>
                             <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{calcRR(t)}R</td>
                             <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>{calcDuration(t)}</td>
                             <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: 600, textAlign: 'right', fontFamily: 'var(--font-sans)', color: pnlVal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
@@ -1510,7 +1534,7 @@ ${JSON.stringify(trades.map(t => {
             )}
 
             {activeTab === 'Trading Statistics' && (
-              <TradingStatistics trades={trades} tod={tod} firstName={firstName} />
+              <TradingStatistics trades={trades} tod={tod} firstName={firstName} onTradeClick={(t) => setSelectedTradeDetail(t)} />
             )}
 
             {activeTab === 'Strategy Enhancement' && (
@@ -1656,193 +1680,13 @@ ${JSON.stringify(trades.map(t => {
                 </div>
               </div>
             )}
-
+              </div>
+            )}
           </div>{/* /body */}
         </div>{/* /main content */}
       </div>{/* /flex layout wrapper */}
 
-      {/* ── LOG TRADE MODAL ── */}
-      {showModal && (
-        <div
-          onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}
-          style={{
-            position: 'fixed', inset: 0,
-            background: 'rgba(0, 0, 0, 0.75)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 999, backdropFilter: 'blur(8px)',
-          }}
-        >
-          <div className="no-scrollbar" style={{
-            background: 'var(--bg-panel)', borderRadius: '28px',
-            border: '1px solid var(--border)',
-            boxShadow: 'var(--shadow-md)',
-            width: '620px', maxWidth: '95vw',
-            maxHeight: '90vh', overflowY: 'auto',
-            display: 'flex', flexDirection: 'column',
-            transition: 'var(--transition)'
-          }}>
-            {/* Modal header */}
-            <div style={{
-              padding: '20px 24px',
-              borderBottom: '1px solid var(--bg-base)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            }}>
-              <div>
-                <div style={{ fontSize: '17px', fontWeight: 800, color: 'var(--text-primary)' }}>
-                  {editingTradeId ? 'Edit Trade' : 'Log New Trade'}
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--text-dim)', marginTop: '2px' }}>
-                  {editingTradeId ? 'Modify your trade details' : 'Fill in your trade details below'}
-                </div>
-              </div>
-              <button
-                onClick={() => setShowModal(false)}
-                style={{
-                  background: 'var(--bg-base)', border: '1.5px solid var(--border)',
-                  borderRadius: '10px', width: '32px', height: '32px',
-                  cursor: 'pointer', fontSize: '15px', color: 'var(--text-secondary)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}
-              >✕</button>
-            </div>
-
-            {/* Modal body */}
-            <div style={{ padding: '24px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-
-                <FGroup label="Pair *">
-                  <AssetAutocomplete value={form.pair} onChange={val => setF('pair', val)} />
-                </FGroup>
-                
-                <FGroup label="Direction">
-                  <CustomSelect 
-                    value={form.dir} 
-                    onChange={val => setF('dir', val)}
-                    options={[
-                      { value: 'long', label: 'Long (Buy)' },
-                      { value: 'short', label: 'Short (Sell)' }
-                    ]}
-                  />
-                </FGroup>
-
-                <FGroup label="Date">
-                  <CustomDatePicker value={form.date} onChange={val => setF('date', val)} />
-                </FGroup>
-
-                <FGroup label="Session">
-                  <CustomSelect 
-                    value={form.session} 
-                    onChange={val => setF('session', val)}
-                    placeholder="— Select —"
-                    options={SESSIONS.map(s => ({ value: s.key, label: s.label }))}
-                  />
-                </FGroup>
-
-                <FGroup label="Entry Time">
-                  <CustomTimePicker value={form.entryTime} onChange={val => setF('entryTime', val)} />
-                </FGroup>
-
-                <FGroup label="Exit Time">
-                  <CustomTimePicker value={form.exitTime} onChange={val => setF('exitTime', val)} />
-                </FGroup>
-
-                <FGroup label="Entry *">
-                  <StyledInput type="number" step="0.00001" value={form.entry} onChange={e => setF('entry', e.target.value)} placeholder="1.08520" />
-                </FGroup>
-                <FGroup label="Exit">
-                  <StyledInput type="number" step="0.00001" value={form.exit} onChange={e => setF('exit', e.target.value)} placeholder="Blank if still open" />
-                </FGroup>
-                <FGroup label="Stop Loss *">
-                  <StyledInput type="number" step="0.00001" value={form.sl} onChange={e => setF('sl', e.target.value)} placeholder="1.08200" />
-                </FGroup>
-                <FGroup label="Take Profit *">
-                  <StyledInput type="number" step="0.00001" value={form.tp} onChange={e => setF('tp', e.target.value)} placeholder="1.09200" />
-                </FGroup>
-                <FGroup label="Lot Size">
-                  <StyledInput type="number" step="0.01" value={form.lots} onChange={e => setF('lots', e.target.value)} />
-                </FGroup>
-                <FGroup label="Pip Value ($)">
-                  <StyledInput type="number" step="0.01" value={form.pipval} onChange={e => setF('pipval', e.target.value)} />
-                </FGroup>
-
-                <FGroup label="Emotion">
-                  <CustomSelect 
-                    value={form.emotion} 
-                    onChange={val => setF('emotion', val)}
-                    placeholder="— Select —"
-                    options={[
-                      { value: 'calm', label: '😌  Calm' },
-                      { value: 'confident', label: '💪  Confident' },
-                      { value: 'fomo', label: '😰  FOMO' },
-                      { value: 'fearful', label: '😨  Fearful' },
-                      { value: 'greedy', label: '🤑  Greedy' },
-                      { value: 'patient', label: '🧘  Patient' },
-                      { value: 'disciplined', label: '✅  Disciplined' }
-                    ]}
-                  />
-                </FGroup>
-
-                <FGroup label="Notes" full>
-                  <textarea
-                    style={{ ...inputStyle, background: 'var(--bg-panel)', fontFamily: 'var(--font-sans)', resize: 'vertical', minHeight: '80px' }}
-                    value={form.notes}
-                    onChange={e => setF('notes', e.target.value)}
-                    placeholder="Setup, confluences, reasoning, lessons..."
-                  />
-                </FGroup>
-                
-                <FGroup label="Screenshots (Max 4)" full>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '4px' }}>
-                    {(form.images || []).map((img, idx) => (
-                      <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '12px', border: '1.5px solid var(--border)', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-                        <img src={img} alt={`Screenshot ${idx+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        <button onClick={() => {
-                          const newImages = [...(form.images || [])];
-                          newImages.splice(idx, 1);
-                          setF('images', newImages);
-                        }} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(0,0,0,0.65)', color: 'white', border: 'none', borderRadius: '50%', width: '22px', height: '22px', cursor: 'pointer', fontSize: '11px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                      </div>
-                    ))}
-                    {(form.images || []).length < 4 && (
-                      <label style={{ width: '80px', height: '80px', borderRadius: '12px', border: '1.5px dashed var(--text-dim)', background: 'var(--bg-base)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', transition: 'all 0.2s' }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-card)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-base)'}
-                      >
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--text-secondary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-secondary)', marginTop: '4px' }}>Upload</span>
-                        <input type="file" accept="image/*" multiple onChange={(e) => {
-                          const files = Array.from(e.target.files);
-                          if ((form.images || []).length + files.length > 4) {
-                            alert('You can only upload a maximum of 4 images per trade.');
-                            return;
-                          }
-                          files.forEach(file => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setForm(prev => ({
-                                ...prev,
-                                images: [...(prev.images || []), reader.result]
-                              }));
-                            };
-                            reader.readAsDataURL(file);
-                          });
-                        }} style={{ display: 'none' }} />
-                      </label>
-                    )}
-                  </div>
-                </FGroup>
-
-              </div>
-
-              {/* Actions */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '22px', paddingTop: '18px', borderTop: '1px solid var(--border)' }}>
-                <Btn onClick={() => setShowModal(false)}>Cancel</Btn>
-                <Btn primary onClick={submitTrade}>Save Trade</Btn>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal removed — Log Trade is now rendered inline via LogTradeView */}
 
       {/* ── DELETE CONFIRMATION MODAL ── */}
       {tradeToDelete && (

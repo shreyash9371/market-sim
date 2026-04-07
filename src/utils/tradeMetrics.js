@@ -20,8 +20,12 @@ export function calcPnl(t) {
   if (!t.exit) return null
   const size = t.pipval ? parseFloat(t.pipval) : getContractSize(t.pair)
   const diff = t.dir === 'long' ? (t.exit - t.entry) : (t.entry - t.exit)
-  const usd = diff * t.lots * size
-  
+  let usd = diff * t.lots * size
+
+  // Deduct commissions
+  const commissions = Number(t.commissions) || 0
+  usd -= commissions
+
   const mult = getPipMultiplier(t.pair)
   const pips = diff * mult
 
@@ -51,14 +55,29 @@ export function calcRR(t) {
 }
 
 export function calcDuration(t) {
-  if (!t.entryTime || !t.exitTime) return '—'
-  const [eh, em] = t.entryTime.split(':').map(Number)
-  const [xh, xm] = t.exitTime.split(':').map(Number)
-  let diff = (xh * 60 + xm) - (eh * 60 + em)
-  if (diff < 0) diff += 24 * 60 // crossed midnight
-  const hours = Math.floor(diff / 60)
-  const mins = diff % 60
-  return `${hours}h ${mins}m`
+  if (!t.date || !t.entryTime || !t.exitTime) return '—'
+  
+  try {
+    const entryDate = t.date
+    const exitDate = t.exit_date || t.date // Use exit_date if available, otherwise assume same day
+    
+    const entry = new Date(`${entryDate}T${t.entryTime}:00`)
+    const exit = new Date(`${exitDate}T${t.exitTime}:00`)
+    
+    const diffMs = exit - entry
+    if (isNaN(diffMs) || diffMs < 0) return '—'
+    
+    const totalMins = Math.floor(diffMs / (1000 * 60))
+    const days = Math.floor(totalMins / (60 * 24))
+    const hours = Math.floor((totalMins % (60 * 24)) / 60)
+    const mins = totalMins % 60
+    
+    if (days > 0) return `${days}d ${hours}h ${mins}m`
+    return `${hours}h ${mins}m`
+  } catch (e) {
+    console.error("Error calculating duration:", e)
+    return '—'
+  }
 }
 
 export const SESSIONS = [
