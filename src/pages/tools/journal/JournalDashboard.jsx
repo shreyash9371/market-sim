@@ -995,7 +995,7 @@ ${JSON.stringify(trades.map(t => {
             </button>
 
             <a
-              href="https://discord.gg/8cz2eZk8"
+              href="https://discord.gg/qMGJaYp7hP"
               target="_blank"
               rel="noreferrer"
               style={{

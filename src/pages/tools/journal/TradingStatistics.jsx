@@ -275,6 +275,8 @@ export default function TradingStatistics({ trades, tod, firstName, onTradeClick
   // Calendar Pagination Logic
   const [calendarAnchorDate, setCalendarAnchorDate] = useState(new Date())
 
+  const dayOfWeekOffset = new Date(calendarAnchorDate.getFullYear(), calendarAnchorDate.getMonth(), 1).getDay()
+
   const stats = useMemo(() => {
     const closed = filteredTrades.filter(t => t.exit)
     const totalPnl = closed.reduce((acc, t) => acc + calcPnl(t).usd, 0)
@@ -363,21 +365,21 @@ export default function TradingStatistics({ trades, tod, firstName, onTradeClick
       }
     })
 
-    const weeklySummary = [0, 1, 2, 3, 4, 5].map(weekIndex => {
-      const startDay = weekIndex * 7 + 1
-      const endDay = Math.min((weekIndex + 1) * 7, daysInMonth)
-      if (startDay > daysInMonth) return null
+    const weeksMap = {}
+    calendarDays.forEach(d => {
+      const rowIndex = Math.floor((dayOfWeekOffset + d.dayNumber - 1) / 7)
+      if (!weeksMap[rowIndex]) weeksMap[rowIndex] = { net: 0, days: 0 }
+      weeksMap[rowIndex].net += d.net
+      if (d.tradesCount > 0) weeksMap[rowIndex].days++
+    })
 
-      const weekDays = calendarDays.filter(d => d.dayNumber >= startDay && d.dayNumber <= endDay)
-      const weekNet = weekDays.reduce((acc, d) => acc + d.net, 0)
-      const weekActiveDays = weekDays.filter(d => d.tradesCount > 0).length
-
+    const weeklySummary = Object.keys(weeksMap).sort((a, b) => parseInt(a) - parseInt(b)).map((rowIndex, i) => {
       return {
-        label: `Week ${weekIndex + 1}`,
-        net: parseFloat(weekNet.toFixed(2)),
-        days: weekActiveDays
+        label: `Week ${i + 1}`,
+        net: parseFloat(weeksMap[rowIndex].net.toFixed(2)),
+        days: weeksMap[rowIndex].days
       }
-    }).filter(Boolean)
+    })
 
     const biggestWin = wins.length ? Math.max(...wins.map(t => calcPnl(t).usd)) : 0
     const minPnl = closed.length ? Math.min(...closed.map(t => calcPnl(t).usd)) : 0
@@ -401,11 +403,22 @@ export default function TradingStatistics({ trades, tod, firstName, onTradeClick
 
     const totalDurationMins = closed.reduce((acc, t) => {
       if (!t.entryTime || !t.exitTime) return acc;
-      const [eh, em] = t.entryTime.split(':').map(Number);
-      const [xh, xm] = t.exitTime.split(':').map(Number);
-      let diff = (xh * 60 + xm) - (eh * 60 + em);
-      if (diff < 0) diff += 24 * 60;
-      return acc + diff;
+      try {
+        const entry = new Date(`${t.date}T${t.entryTime}:00`);
+        const exitDateStr = t.exit_date || t.date;
+        const exit = new Date(`${exitDateStr}T${t.exitTime}:00`);
+        
+        let diffMs = exit.getTime() - entry.getTime();
+        
+        // Handle overnight trades for legacy data missing exit_date
+        if (!t.exit_date && diffMs < 0) {
+          diffMs += 24 * 60 * 60 * 1000;
+        }
+        
+        return acc + (diffMs > 0 ? diffMs / (1000 * 60) : 0);
+      } catch (e) {
+        return acc;
+      }
     }, 0);
     const avgDurationMins = closed.length ? Math.round(totalDurationMins / closed.length) : 0;
     const avgDurationStr = `${Math.floor(avgDurationMins / 60)}h ${avgDurationMins % 60}m`;
@@ -435,7 +448,6 @@ export default function TradingStatistics({ trades, tod, firstName, onTradeClick
   const currentMonthName = calendarAnchorDate.toLocaleString('default', { month: 'long', year: 'numeric' })
   const dayTradesList = stats.closed.filter(t => selectedDate ? t.date === selectedDate : true)
 
-  const dayOfWeekOffset = new Date(calendarAnchorDate.getFullYear(), calendarAnchorDate.getMonth(), 1).getDay()
 
   const handlePrevMonth = () => setCalendarAnchorDate(new Date(calendarAnchorDate.getFullYear(), calendarAnchorDate.getMonth() - 1, 1))
   const handleNextMonth = () => setCalendarAnchorDate(new Date(calendarAnchorDate.getFullYear(), calendarAnchorDate.getMonth() + 1, 1))
