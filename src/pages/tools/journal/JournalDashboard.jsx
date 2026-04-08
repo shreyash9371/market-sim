@@ -353,7 +353,7 @@ function AssetAutocomplete({ value, onChange }) {
   )
 }
 
-function CustomDatePicker({ value, onChange, placeholder = "Select Date" }) {
+function CustomDatePicker({ value, onChange, placeholder = "Select Date", alignRight = false }) {
   const [isOpen, setIsOpen] = useState(false)
   const [viewDate, setViewDate] = useState(value ? new Date(value + 'T12:00:00') : new Date())
   const ref = useRef(null)
@@ -392,7 +392,7 @@ function CustomDatePicker({ value, onChange, placeholder = "Select Date" }) {
       </div>
 
       {isOpen && (
-        <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: '8px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', boxShadow: 'var(--shadow-md)', zIndex: 1000, width: '280px' }}>
+        <div style={{ position: 'absolute', top: '100%', ...(alignRight ? { right: 0 } : { left: 0 }), marginTop: '8px', background: 'var(--bg-panel)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px', boxShadow: 'var(--shadow-md)', zIndex: 1000, width: '280px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
             <button onClick={() => changeMonth(-1)} style={{ background: 'var(--bg-base)', border: 'none', borderRadius: '8px', padding: '4px 8px', cursor: 'pointer', color: 'var(--text-primary)' }}>❮</button>
             <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-primary)' }}>
@@ -546,6 +546,12 @@ export default function JournalDashboard() {
   const [galleryDateFilter, setGalleryDateFilter] = useState('All')
   const [galleryResultFilter, setGalleryResultFilter] = useState('All')
   const [winRateMode, setWinRateMode] = useState(localStorage.getItem('journal_wr_mode') || 'withBE')
+
+  // Dashboard Visualizations Additions
+  const [dashboardFilter, setDashboardFilter] = useState('All') 
+  const [dashboardSpecificDate, setDashboardSpecificDate] = useState(today())
+  const [dashboardCustomStart, setDashboardCustomStart] = useState('')
+  const [dashboardCustomEnd, setDashboardCustomEnd] = useState('')
 
   useEffect(() => {
     localStorage.setItem('journal_wr_mode', winRateMode)
@@ -794,6 +800,42 @@ ${JSON.stringify(trades.map(t => {
   const bestPair = Object.entries(byPair).sort((a, b) => b[1] - a[1])[0]
 
   // Day bars
+  // Dashboard Visualizations Filter Logic
+  const dashboardFilteredTrades = useMemo(() => {
+    let list = closed
+    if (dashboardFilter === 'All') return list
+
+    const todayDate = new Date()
+    todayDate.setHours(0,0,0,0)
+
+    return list.filter(t => {
+      const d = new Date(t.date + 'T12:00:00')
+      d.setHours(0,0,0,0)
+      
+      if (dashboardFilter === 'Today') {
+        return d.getTime() === todayDate.getTime()
+      }
+      if (dashboardFilter === 'Yesterday') {
+        const yesterday = new Date(todayDate)
+        yesterday.setDate(yesterday.getDate() - 1)
+        return d.getTime() === yesterday.getTime()
+      }
+      if (dashboardFilter === 'Specific') {
+        if (!dashboardSpecificDate) return true
+        const specific = new Date(dashboardSpecificDate + 'T12:00:00')
+        specific.setHours(0,0,0,0)
+        return d.getTime() === specific.getTime()
+      }
+      if (dashboardFilter === 'Custom') {
+        if (!dashboardCustomStart || !dashboardCustomEnd) return true
+        const start = new Date(dashboardCustomStart + 'T00:00:00')
+        const end = new Date(dashboardCustomEnd + 'T23:59:59')
+        return d >= start && d <= end
+      }
+      return true
+    })
+  }, [closed, dashboardFilter, dashboardSpecificDate, dashboardCustomStart, dashboardCustomEnd])
+
   const dayStats = {
     Mon: { win: 0, loss: 0, net: 0 },
     Tue: { win: 0, loss: 0, net: 0 },
@@ -801,7 +843,7 @@ ${JSON.stringify(trades.map(t => {
     Thu: { win: 0, loss: 0, net: 0 },
     Fri: { win: 0, loss: 0, net: 0 }
   }
-  closed.forEach(t => {
+  dashboardFilteredTrades.forEach(t => {
     const d = DOW[new Date(t.date + 'T12:00:00').getDay()]
     if (dayStats[d] !== undefined) {
       const pnl = calcPnl(t).usd
@@ -815,11 +857,11 @@ ${JSON.stringify(trades.map(t => {
     if (dayStats[d].win > maxBarVal) maxBarVal = dayStats[d].win
     if (dayStats[d].loss > maxBarVal) maxBarVal = dayStats[d].loss
   })
-  const bestDay = closed.length === 0 ? '-' : DAYS.reduce((a, b) => dayStats[a].net >= dayStats[b].net ? a : b)
+  const bestDay = dashboardFilteredTrades.length === 0 ? '-' : DAYS.reduce((a, b) => dayStats[a].net >= dayStats[b].net ? a : b)
 
   // Bias
-  const longs = closed.filter(t => t.dir === 'long').length
-  const shorts = closed.filter(t => t.dir === 'short').length
+  const longs = dashboardFilteredTrades.filter(t => t.dir === 'long').length
+  const shorts = dashboardFilteredTrades.filter(t => t.dir === 'short').length
   const total = longs + shorts
   const bullPct = total ? longs / total : 0.5
   const bearPct = total ? shorts / total : 0.5
@@ -831,7 +873,7 @@ ${JSON.stringify(trades.map(t => {
 
   // Asset breakdown
   const assetMap = {}
-  closed.forEach(t => {
+  dashboardFilteredTrades.forEach(t => {
     if (!assetMap[t.pair]) assetMap[t.pair] = { w: 0, l: 0, pnl: 0 }
     calcPnl(t).usd >= 0 ? assetMap[t.pair].w++ : assetMap[t.pair].l++
     assetMap[t.pair].pnl += calcPnl(t).usd
@@ -840,7 +882,7 @@ ${JSON.stringify(trades.map(t => {
 
   // Sessions
   const sessionMap = {}
-  closed.filter(t => t.session).forEach(t => {
+  dashboardFilteredTrades.filter(t => t.session).forEach(t => {
     if (!sessionMap[t.session]) sessionMap[t.session] = { w: 0, l: 0 }
     calcPnl(t).usd >= 0 ? sessionMap[t.session].w++ : sessionMap[t.session].l++
   })
@@ -1090,6 +1132,44 @@ ${JSON.stringify(trades.map(t => {
                   />
                 </div>
 
+                {/* ── DASHBOARD VISUALIZATIONS FILTER ── */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', marginTop: '32px' }}>
+                  <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-primary)', margin: 0, letterSpacing: '-0.5px' }}>
+                    Visualizations
+                  </h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '160px' }}>
+                      <CustomSelect 
+                        value={dashboardFilter} 
+                        onChange={setDashboardFilter}
+                        options={[
+                          { value: 'All', label: 'Overall Results' },
+                          { value: 'Today', label: 'Today' },
+                          { value: 'Yesterday', label: 'Yesterday' },
+                          { value: 'Specific', label: 'Specific Date' },
+                          { value: 'Custom', label: 'Custom Range' },
+                        ]}
+                      />
+                    </div>
+                    {dashboardFilter === 'Specific' && (
+                      <div style={{ width: '150px' }}>
+                        <CustomDatePicker 
+                          value={dashboardSpecificDate} 
+                          onChange={setDashboardSpecificDate} 
+                          placeholder="Select date"
+                          alignRight
+                        />
+                      </div>
+                    )}
+                    {dashboardFilter === 'Custom' && (
+                      <div style={{ display: 'flex', gap: '8px', width: '280px' }}>
+                        <CustomDatePicker value={dashboardCustomStart} onChange={setDashboardCustomStart} placeholder="Start" />
+                        <CustomDatePicker value={dashboardCustomEnd} onChange={setDashboardCustomEnd} placeholder="End" alignRight />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* ── MAIN 2×2 GRID ── */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
 
@@ -1098,7 +1178,7 @@ ${JSON.stringify(trades.map(t => {
                     <CardLabel>
                       Behavioral Bias
                       <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-dim)', textTransform: 'none', letterSpacing: 0 }}>
-                        {trades.length} total trades
+                        {dashboardFilteredTrades.length} filtered trades
                       </span>
                     </CardLabel>
 
