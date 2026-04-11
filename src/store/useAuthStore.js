@@ -69,7 +69,7 @@ export function useAuthStore() {
       notify()
       
       // Attempt tracking guest login - fire and forget
-      supabase.from('profiles').insert([{ id: 'guest-' + Date.now(), role: 'guest_login' }]).then(() => {}).catch(() => {})
+      supabase.from('guest_logins').insert([ { } ]).then(() => {}).catch((e) => console.log('Guest tracking error:', e))
     },
 
     async signUp({ firstName, lastName, email, password }) {
