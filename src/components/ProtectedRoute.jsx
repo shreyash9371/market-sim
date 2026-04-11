@@ -36,9 +36,9 @@ export default function ProtectedRoute({ children }) {
           .eq('id', user.id)
           .single()
 
-        setApproved(profile?.approved ?? false)
+        setApproved(profile?.approved ?? true)  // TEMP: default true while free
       } catch (e) {
-        setApproved(false)
+        setApproved(true)  // TEMP: default true while free
       }
 
       setChecking(false)

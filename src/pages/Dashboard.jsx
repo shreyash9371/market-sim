@@ -66,7 +66,8 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [loggingOut, setLoggingOut] = useState(false)
 
-  const firstName = auth.user?.user_metadata?.first_name || 'Trader'
+  const meta = auth.user?.user_metadata || {}
+  const firstName = meta.first_name || meta.given_name || meta.full_name?.split(' ')[0] || meta.name?.split(' ')[0] || 'Trader'
 
   async function handleLogout() {
     setLoggingOut(true)
