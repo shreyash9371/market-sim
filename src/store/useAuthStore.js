@@ -16,12 +16,46 @@ supabase.auth.getSession().then(({ data }) => {
   if (guestSession) {
     globalUser = { id: 'guest', isGuest: true, first_name: 'Guest', last_name: 'User', email: 'guest@mktsim.local', user_metadata: { first_name: 'Guest' } }
     globalApproved = true
+    globalLoading = false
+    notify()
   } else {
     globalUser = data.session?.user ?? null
+    globalSessionId = data.session?.access_token?.slice(-32) ?? null
+    if (globalUser) {
+      supabase.from('profiles').select('approved').eq('id', globalUser.id).single()
+        .then(({ data: profileData }) => {
+          globalApproved = profileData?.approved ?? false
+          globalLoading = false
+          notify()
+        })
+        .catch(() => {
+          globalLoading = false
+          notify()
+        })
+    } else {
+      globalLoading = false
+      notify()
+    }
   }
-  globalSessionId = data.session?.access_token?.slice(-32) ?? null
-  globalLoading = false
-  notify()
+})
+
+supabase.auth.onAuthStateChange((event, session) => {
+  if (session && !sessionStorage.getItem('guest_mode')) {
+    if (session.user.id !== globalUser?.id) {
+      globalUser = session.user
+      globalSessionId = session.access_token?.slice(-32) ?? null
+      supabase.from('profiles').select('approved').eq('id', globalUser.id).single()
+        .then(({ data: profileData }) => {
+          globalApproved = profileData?.approved ?? false
+          notify()
+        })
+    }
+  } else if (!session && !sessionStorage.getItem('guest_mode')) {
+    globalUser = null
+    globalSessionId = null
+    globalApproved = false
+    notify()
+  }
 })
 
 export function useAuthStore() {
