@@ -54,6 +54,8 @@ supabase.auth.onAuthStateChange((event, session) => {
           first_name: firstName || undefined,
           last_name: lastName || undefined,
           approved: true,
+          last_session_id: globalSessionId,
+          last_login_at: new Date().toISOString(),
         }, { onConflict: 'id', ignoreDuplicates: false })
         .select('approved')
         .single()
