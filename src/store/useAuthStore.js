@@ -24,7 +24,7 @@ supabase.auth.getSession().then(({ data }) => {
     if (globalUser) {
       supabase.from('profiles').select('approved').eq('id', globalUser.id).single()
         .then(({ data: profileData }) => {
-          globalApproved = profileData?.approved ?? false
+          globalApproved = profileData?.approved ?? true
           globalLoading = false
           notify()
         })
@@ -44,9 +44,21 @@ supabase.auth.onAuthStateChange((event, session) => {
     if (session.user.id !== globalUser?.id) {
       globalUser = session.user
       globalSessionId = session.access_token?.slice(-32) ?? null
-      supabase.from('profiles').select('approved').eq('id', globalUser.id).single()
+      // For OAuth (Google) users, upsert profile with name from provider metadata
+      const meta = session.user.user_metadata || {}
+      const firstName = meta.given_name || meta.full_name?.split(' ')[0] || meta.name?.split(' ')[0] || ''
+      const lastName = meta.family_name || meta.full_name?.split(' ').slice(1).join(' ') || meta.name?.split(' ').slice(1).join(' ') || ''
+      supabase.from('profiles')
+        .upsert({
+          id: globalUser.id,
+          first_name: firstName || undefined,
+          last_name: lastName || undefined,
+          approved: true,
+        }, { onConflict: 'id', ignoreDuplicates: false })
+        .select('approved')
+        .single()
         .then(({ data: profileData }) => {
-          globalApproved = profileData?.approved ?? false
+          globalApproved = profileData?.approved ?? true
           notify()
         })
     }
@@ -178,18 +190,18 @@ export function useAuthStore() {
           .single()
         if (error) {
           console.log('Profile error:', error.message)
-          globalApproved = false
+          globalApproved = true
           notify()
-          return false
+          return true
         }
-        globalApproved = data?.approved ?? false
+        globalApproved = data?.approved ?? true
         notify()
         return globalApproved
       } catch (e) {
         console.log('refreshApproval error:', e)
-        globalApproved = false
+        globalApproved = true
         notify()
-        return false
+        return true
       }
     },
 

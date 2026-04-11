@@ -153,21 +153,22 @@ export default function AuthPanel({ open, onClose, defaultTab = 'login' }) {
 
   const btnGoogle = {
     width: '100%',
-    padding: '12px',
-    borderRadius: '10px',
-    border: '1.5px solid var(--border)',
-    background: 'var(--bg-card)',
+    padding: '14px',
+    borderRadius: '12px',
+    border: '1px solid var(--border)',
+    background: 'var(--bg-panel)',
     color: 'var(--text-primary)',
-    fontSize: '14px',
-    fontWeight: 600,
+    fontSize: '15px',
+    fontWeight: 700,
     cursor: loading ? 'not-allowed' : 'pointer',
     opacity: loading ? 0.7 : 1,
-    transition: 'all 0.2s',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     fontFamily: 'var(--font-sans)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: '10px',
+    gap: '12px',
+    boxShadow: '0 4px 14px rgba(0,0,0,0.05)',
   }
 
   return (
@@ -346,8 +347,8 @@ export default function AuthPanel({ open, onClose, defaultTab = 'login' }) {
                 type="button"
                 onClick={handleGoogleLogin}
                 style={btnGoogle}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)'; e.currentTarget.style.borderColor = '#9ca3af' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.05)'; e.currentTarget.style.borderColor = 'var(--border)' }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -497,8 +498,8 @@ export default function AuthPanel({ open, onClose, defaultTab = 'login' }) {
                 type="button"
                 onClick={handleGoogleLogin}
                 style={btnGoogle}
-                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-card)'}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)'; e.currentTarget.style.borderColor = '#9ca3af' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(0,0,0,0.05)'; e.currentTarget.style.borderColor = 'var(--border)' }}
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
