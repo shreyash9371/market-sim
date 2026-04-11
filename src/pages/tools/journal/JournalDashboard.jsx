@@ -494,7 +494,8 @@ export default function JournalDashboard() {
   const [activeTab, setActiveTab] = useState('Dashboard')
   const navigate = useNavigate()
   const auth = useAuthStore()
-  const firstName = auth.user?.user_metadata?.first_name || 'Trader'
+  const _meta = auth.user?.user_metadata || {}
+  const firstName = _meta.first_name || _meta.given_name || _meta.full_name?.split(' ')[0] || _meta.name?.split(' ')[0] || 'Trader'
 
   // Theme Logic
   const [theme, setTheme] = useState(() => localStorage.getItem('mkt_sim_theme') || 'light')

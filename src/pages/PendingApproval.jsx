@@ -9,7 +9,8 @@ export default function PendingApproval() {
   const [checking, setChecking] = useState(false)
   const [checkMsg, setCheckMsg] = useState('')
 
-  const firstName = auth.user?.user_metadata?.first_name || 'there'
+  const _meta = auth.user?.user_metadata || {}
+  const firstName = _meta.first_name || _meta.given_name || _meta.full_name?.split(' ')[0] || _meta.name?.split(' ')[0] || 'there'
 
   async function handleLogout() {
     setLoggingOut(true)

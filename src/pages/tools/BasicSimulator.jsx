@@ -22,7 +22,8 @@ export default function BasicSimulator() {
     return () => clearInterval(timer)
   }, [store.isRealMarket, store.playbackPlaying, store.playbackSpeed])
 
-  const firstName = auth.user?.user_metadata?.first_name || 'Trader'
+  const _meta = auth.user?.user_metadata || {}
+  const firstName = _meta.first_name || _meta.given_name || _meta.full_name?.split(' ')[0] || _meta.name?.split(' ')[0] || 'Trader'
 
   const handleTogglePanel = () => setPanelOpen(p => !p)
 
