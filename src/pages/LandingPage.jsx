@@ -32,6 +32,17 @@ export default function LandingPage() {
     setPanelOpen(true)
   }
 
+  function handleGuestClick() {
+    if (window.gtag) {
+      window.gtag('event', 'guest_mode_clicked', {
+        event_category: 'engagement',
+        event_label: 'guest_user'
+      });
+    }
+    auth.loginAsGuest()
+    navigate('/dashboard')
+  }
+
   return (
     <div style={{
       minHeight: '100vh',
@@ -182,7 +193,7 @@ export default function LandingPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <button onClick={() => { auth.loginAsGuest(); navigate('/dashboard'); }} style={{
+          <button onClick={handleGuestClick} style={{
             background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--border)',
             padding: '10px 20px', borderRadius: '10px',
             fontSize: '15px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
