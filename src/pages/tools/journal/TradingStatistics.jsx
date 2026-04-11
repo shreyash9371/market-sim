@@ -258,7 +258,9 @@ export default function TradingStatistics({ trades, tod, firstName, onTradeClick
 
   // Custom Balance Logic
   const [initialBalance, setInitialBalance] = useState(() => {
-    return parseFloat(localStorage.getItem('mkt_sim_initial_balance')) || 100000
+    // If guest mode, always override the fallback storage so the math is clean
+    if (sessionStorage.getItem('guest_mode') === 'true') return 10000;
+    return parseFloat(localStorage.getItem('mkt_sim_initial_balance')) || 10000
   })
   const [isEditingBalance, setIsEditingBalance] = useState(false)
   const [tempBalance, setTempBalance] = useState(initialBalance)

@@ -17,6 +17,7 @@ import {
 import TradingStatistics from './TradingStatistics'
 import TradeDetailsView from './TradeDetailsView'
 import LogTradeView from './LogTradeView'
+import { getGuestTrades } from '../../../utils/guestData'
 // ── HELPERS ───────────────────────────────────────────────────
 function today() {
   return new Date().toISOString().split('T')[0]
@@ -512,6 +513,12 @@ export default function JournalDashboard() {
       return
     }
 
+    if (auth.isGuest) {
+      setTrades(getGuestTrades())
+      setTradesLoading(false)
+      return
+    }
+
     async function fetchTrades() {
       const { data, error } = await supabase
         .from('trades')
@@ -525,7 +532,7 @@ export default function JournalDashboard() {
     }
 
     fetchTrades()
-  }, [auth.user])
+  }, [auth.user, auth.isGuest])
 
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ ...emptyForm, date: today() })
@@ -704,37 +711,46 @@ ${JSON.stringify(trades.map(t => {
 
     let savedData = null
 
-    if (editingTradeId) {
-      const { data, error } = await supabase
-        .from('trades')
-        .update(newTrade)
-        .eq('id', editingTradeId)
-        .select()
-        .single()
-
-      if (error) {
-        console.error(error)
-        alert('Error updating trade: ' + error.message)
-        return
+    if (auth.isGuest) {
+      savedData = { ...newTrade, id: editingTradeId || `guest-new-${Date.now()}` }
+      if (editingTradeId) {
+        setTrades(trades.map(t => t.id === editingTradeId ? savedData : t))
+      } else {
+        setTrades([...trades, savedData])
       }
-
-      savedData = data
-      setTrades(trades.map(t => t.id === editingTradeId ? data : t))
     } else {
-      const { data, error } = await supabase
-        .from('trades')
-        .insert([newTrade])
-        .select()
-        .single()
+      if (editingTradeId) {
+        const { data, error } = await supabase
+          .from('trades')
+          .update(newTrade)
+          .eq('id', editingTradeId)
+          .select()
+          .single()
 
-      if (error) {
-        console.error(error)
-        alert('Error saving trade: ' + error.message)
-        return
+        if (error) {
+          console.error(error)
+          alert('Error updating trade: ' + error.message)
+          return
+        }
+
+        savedData = data
+        setTrades(trades.map(t => t.id === editingTradeId ? data : t))
+      } else {
+        const { data, error } = await supabase
+          .from('trades')
+          .insert([newTrade])
+          .select()
+          .single()
+
+        if (error) {
+          console.error(error)
+          alert('Error saving trade: ' + error.message)
+          return
+        }
+
+        savedData = data
+        setTrades([...trades, data])
       }
-
-      savedData = data
-      setTrades([...trades, data])
     }
 
     setShowModal(false)
@@ -768,6 +784,8 @@ ${JSON.stringify(trades.map(t => {
     const updated = trades.filter(t => t.id !== id)
     setTrades(updated)
     setTradeToDelete(null)
+
+    if (auth.isGuest) return
 
     const { error } = await supabase.from('trades').delete().eq('id', id)
     if (error) {

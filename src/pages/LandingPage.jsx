@@ -177,6 +177,17 @@ export default function LandingPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <button onClick={() => { auth.loginAsGuest(); navigate('/dashboard'); }} style={{
+            background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--border)',
+            padding: '10px 20px', borderRadius: '10px',
+            fontSize: '15px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+          }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--text-secondary)'}
+            onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}
+          >
+            Guest Mode
+          </button>
+          
           <button onClick={openLogin} style={{
             background: 'transparent', border: 'none',
             color: 'var(--text-primary)', padding: '10px 20px', borderRadius: '10px',

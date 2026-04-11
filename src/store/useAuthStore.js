@@ -12,7 +12,13 @@ function notify() {
 }
 
 supabase.auth.getSession().then(({ data }) => {
-  globalUser = data.session?.user ?? null
+  const guestSession = sessionStorage.getItem('guest_mode') === 'true';
+  if (guestSession) {
+    globalUser = { id: 'guest', isGuest: true, first_name: 'Guest', last_name: 'User', email: 'guest@mktsim.local' }
+    globalApproved = true
+  } else {
+    globalUser = data.session?.user ?? null
+  }
   globalSessionId = data.session?.access_token?.slice(-32) ?? null
   globalLoading = false
   notify()
@@ -54,6 +60,20 @@ export function useAuthStore() {
     user: globalUser,
     loading: globalLoading,
     approved: globalApproved,
+    isGuest: globalUser?.isGuest || false,
+
+    async loginAsGuest() {
+      sessionStorage.setItem('guest_mode', 'true')
+      globalUser = { id: 'guest', isGuest: true, first_name: 'Guest', last_name: 'User', email: 'guest@mktsim.local' }
+      globalApproved = true
+      
+      // Attempt tracking guest login - ignore errors
+      try {
+        await supabase.from('profiles').insert([{ id: 'guest-' + Date.now(), role: 'guest_login' }])
+      } catch (e) {}
+
+      notify()
+    },
 
     async signUp({ firstName, lastName, email, password }) {
   const { data, error } = await supabase.auth.signUp({
@@ -91,7 +111,10 @@ export function useAuthStore() {
     },
 
     async signOut() {
-      await supabase.auth.signOut()
+      sessionStorage.removeItem('guest_mode')
+      if (!globalUser?.isGuest) {
+        await supabase.auth.signOut()
+      }
       globalUser = null
       globalApproved = false
       globalSessionId = null
@@ -100,6 +123,11 @@ export function useAuthStore() {
 
     async refreshApproval() {
       if (!globalUser) return false
+      if (globalUser.isGuest) {
+        globalApproved = true
+        notify()
+        return true
+      }
       try {
         const { data, error } = await supabase
           .from('profiles')
