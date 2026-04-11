@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import AuthPanel from '../components/AuthPanel'
 import { useAuthStore } from '../store/useAuthStore'
@@ -12,8 +12,13 @@ export default function LandingPage() {
   const auth = useAuthStore()
   const navigate = useNavigate()
 
-  if (auth.user && auth.approved) {
-    navigate('/dashboard')
+  useEffect(() => {
+    if (auth.user && auth.approved && !auth.isGuest) {
+      navigate('/dashboard', { replace: true })
+    }
+  }, [auth.user, auth.approved, auth.isGuest, navigate])
+
+  if (auth.user && auth.approved && !auth.isGuest) {
     return null
   }
 

@@ -14,7 +14,7 @@ function notify() {
 supabase.auth.getSession().then(({ data }) => {
   const guestSession = sessionStorage.getItem('guest_mode') === 'true';
   if (guestSession) {
-    globalUser = { id: 'guest', isGuest: true, first_name: 'Guest', last_name: 'User', email: 'guest@mktsim.local' }
+    globalUser = { id: 'guest', isGuest: true, first_name: 'Guest', last_name: 'User', email: 'guest@mktsim.local', user_metadata: { first_name: 'Guest' } }
     globalApproved = true
   } else {
     globalUser = data.session?.user ?? null
@@ -64,15 +64,12 @@ export function useAuthStore() {
 
     async loginAsGuest() {
       sessionStorage.setItem('guest_mode', 'true')
-      globalUser = { id: 'guest', isGuest: true, first_name: 'Guest', last_name: 'User', email: 'guest@mktsim.local' }
+      globalUser = { id: 'guest', isGuest: true, first_name: 'Guest', last_name: 'User', email: 'guest@mktsim.local', user_metadata: { first_name: 'Guest' } }
       globalApproved = true
-      
-      // Attempt tracking guest login - ignore errors
-      try {
-        await supabase.from('profiles').insert([{ id: 'guest-' + Date.now(), role: 'guest_login' }])
-      } catch (e) {}
-
       notify()
+      
+      // Attempt tracking guest login - fire and forget
+      supabase.from('profiles').insert([{ id: 'guest-' + Date.now(), role: 'guest_login' }]).then(() => {}).catch(() => {})
     },
 
     async signUp({ firstName, lastName, email, password }) {
@@ -95,6 +92,7 @@ export function useAuthStore() {
         password,
       })
       if (!error && data?.user) {
+        sessionStorage.removeItem('guest_mode')
         globalUser = data.user
         globalSessionId = data.session?.access_token?.slice(-32) ?? null
         // Register session

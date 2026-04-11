@@ -11,6 +11,14 @@ export default function ProtectedRoute({ children }) {
 
   useEffect(() => {
     async function check() {
+      const guestSession = sessionStorage.getItem('guest_mode') === 'true'
+      if (guestSession) {
+        setHasUser(true)
+        setApproved(true)
+        setChecking(false)
+        return
+      }
+
       const { data } = await supabase.auth.getSession()
       const user = data.session?.user ?? null
 
