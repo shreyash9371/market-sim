@@ -18,6 +18,7 @@ import TradingStatistics from './TradingStatistics'
 import TradeDetailsView from './TradeDetailsView'
 import LogTradeView from './LogTradeView'
 import { getGuestTrades } from '../../../utils/guestData'
+import { startTourManually } from '../../../components/ProductTourManager'
 // ── HELPERS ───────────────────────────────────────────────────
 function today() {
   return new Date().toISOString().split('T')[0]
@@ -147,7 +148,7 @@ function StatPill({ label, value, sub, color, children }) {
   )
 }
 
-function Btn({ children, onClick, primary, danger, style = {} }) {
+function Btn({ children, onClick, primary, danger, style = {}, id }) {
   const base = {
     fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
     padding: '8px 18px', borderRadius: '12px', cursor: 'pointer',
@@ -159,7 +160,7 @@ function Btn({ children, onClick, primary, danger, style = {} }) {
     : danger
       ? { background: 'rgba(239,68,68,0.08)', color: 'var(--accent-red)', border: '1.5px solid rgba(239,68,68,0.2)' }
       : { background: 'var(--bg-base)', color: 'var(--text-secondary)', border: '1.5px solid var(--border)' }
-  return <button onClick={onClick} style={{ ...base, ...variant, ...style }}>{children}</button>
+  return <button id={id} onClick={onClick} style={{ ...base, ...variant, ...style }}>{children}</button>
 }
 
 function FGroup({ label, children, full }) {
@@ -997,6 +998,15 @@ ${JSON.stringify(trades.map(t => {
 
         {/* Right: prop mode + log trade */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* How It Works Button (Journal) */}
+          <button onClick={() => startTourManually('/tools/journal')} style={{
+            background: 'none', border: '1.5px solid var(--border)',
+            color: 'var(--text-secondary)', padding: '6px 14px', borderRadius: '10px',
+            fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center',
+          }}>
+            💡 How it works
+          </button>
+          
           <button
             onClick={() => setPropMode(p => !p)}
             style={{
@@ -1010,7 +1020,7 @@ ${JSON.stringify(trades.map(t => {
           >
             ⚡ Prop Firm Mode{propMode ? ': ON' : ''}
           </button>
-          <Btn primary onClick={() => openModal()}>+ Log Trade</Btn>
+          <Btn id="tour-new-trade" primary onClick={() => openModal()}>+ Log Trade</Btn>
         </div>
       </nav>
 
@@ -1030,11 +1040,21 @@ ${JSON.stringify(trades.map(t => {
               <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.7px', marginBottom: '12px', paddingLeft: '16px' }}>
                 Menu
               </div>
-              <SidebarItem label="Dashboard" active={activeTab === 'Dashboard' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Dashboard'); setSelectedTradeDetail(null); setShowModal(false); }} />
-              <SidebarItem label="Trading Statistics" active={activeTab === 'Trading Statistics' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Trading Statistics'); setSelectedTradeDetail(null); setShowModal(false); }} />
-              <SidebarItem label="Strategy Enhancement" active={activeTab === 'Strategy Enhancement' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Strategy Enhancement'); setSelectedTradeDetail(null); setShowModal(false); }} />
-              <SidebarItem label="Trading History" active={activeTab === 'Trading History' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Trading History'); setSelectedTradeDetail(null); setShowModal(false); }} />
-              <SidebarItem label="Images of your trades" active={activeTab === 'Images of your trades' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Images of your trades'); setSelectedTradeDetail(null); setShowModal(false); }} />
+              <div id="tour-journal-dashboard">
+                <SidebarItem label="Dashboard" active={activeTab === 'Dashboard' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Dashboard'); setSelectedTradeDetail(null); setShowModal(false); }} />
+              </div>
+              <div id="tour-statistics-tab">
+                <SidebarItem label="Trading Statistics" active={activeTab === 'Trading Statistics' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Trading Statistics'); setSelectedTradeDetail(null); setShowModal(false); }} />
+              </div>
+              <div id="tour-journal-ai">
+                <SidebarItem label="Strategy Enhancement" active={activeTab === 'Strategy Enhancement' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Strategy Enhancement'); setSelectedTradeDetail(null); setShowModal(false); }} />
+              </div>
+              <div id="tour-journal-history">
+                <SidebarItem label="Trading History" active={activeTab === 'Trading History' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Trading History'); setSelectedTradeDetail(null); setShowModal(false); }} />
+              </div>
+              <div id="tour-journal-images">
+                <SidebarItem label="Images of your trades" active={activeTab === 'Images of your trades' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Images of your trades'); setSelectedTradeDetail(null); setShowModal(false); }} />
+              </div>
             </div>
 
           {/* Bottom Section: Theme & Support */}

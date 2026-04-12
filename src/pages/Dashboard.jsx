@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/useAuthStore'
+import { startTourManually } from '../components/ProductTourManager'
 
 const TOOLS = [
   {
@@ -101,8 +102,27 @@ export default function Dashboard() {
         </span>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {/* Tour Button */}
+          <button
+            onClick={() => startTourManually('/dashboard')}
+            title="How to use MktSim"
+            style={{
+              background: 'rgba(59,130,246,0.08)',
+              border: '1px solid rgba(59,130,246,0.2)',
+              color: '#3b82f6',
+              padding: '8px 14px', borderRadius: '10px',
+              fontSize: '13px', fontWeight: 700,
+              cursor: 'pointer', transition: 'all 0.2s',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              fontFamily: 'var(--font-sans)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.14)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.transform = 'none' }}
+          >
+            <span style={{ fontSize: '16px' }}>💡</span> How it works
+          </button>
           {/* User pill */}
-          <div style={{
+          <div id="tour-navbar-user" style={{
             display: 'flex', alignItems: 'center', gap: '10px',
             background: 'var(--bg-card)',
             border: '1px solid var(--border)',
@@ -186,6 +206,7 @@ export default function Dashboard() {
           {TOOLS.map(tool => (
             <div
               key={tool.id}
+              id={tool.id === 'basic-simulator' ? 'tour-simulator-card' : tool.id === 'trade-journal' ? 'tour-journal-card' : undefined}
               onClick={() => tool.available && navigate(tool.route)}
               style={{
                 background: 'var(--bg-panel)',

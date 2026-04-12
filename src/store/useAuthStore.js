@@ -24,7 +24,7 @@ supabase.auth.getSession().then(({ data }) => {
     if (globalUser) {
       supabase.from('profiles').select('approved').eq('id', globalUser.id).single()
         .then(({ data: profileData }) => {
-          globalApproved = profileData?.approved ?? true
+          globalApproved = true // hardcode bypass profileData?.approved ?? true
           globalLoading = false
           notify()
         })
@@ -60,7 +60,7 @@ supabase.auth.onAuthStateChange((event, session) => {
         .select('approved')
         .single()
         .then(({ data: profileData }) => {
-          globalApproved = profileData?.approved ?? true
+          globalApproved = true // hardcode bypass profileData?.approved ?? true
           notify()
         })
     }
@@ -196,7 +196,7 @@ export function useAuthStore() {
           notify()
           return true
         }
-        globalApproved = data?.approved ?? true
+        globalApproved = true // hardcode bypass data?.approved ?? true
         notify()
         return globalApproved
       } catch (e) {

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import AuthPanel from '../components/AuthPanel'
 import { useAuthStore } from '../store/useAuthStore'
 
@@ -13,10 +14,37 @@ export default function LandingPage() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    if (auth.user && auth.approved && !auth.isGuest) {
+    if (!auth.loading && auth.user && auth.approved && !auth.isGuest) {
       navigate('/dashboard', { replace: true })
     }
-  }, [auth.user, auth.approved, auth.isGuest, navigate])
+  }, [auth.loading, auth.user, auth.approved, auth.isGuest, navigate])
+
+  if (auth.loading) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: 'var(--bg-base)', display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-sans)'
+      }}>
+        <div style={{
+          width: '60px', height: '60px', borderRadius: '16px',
+          background: 'linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color: '#fff', boxShadow: '0 8px 32px rgba(59,130,246,0.4)',
+          animation: 'pulseGlow 2s infinite ease-in-out', marginBottom: '24px'
+        }}>
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 20V10"></path><path d="M12 20V4"></path><path d="M6 20V14"></path>
+          </svg>
+        </div>
+        <div style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-0.5px' }}>
+          MktSim
+        </div>
+        <div style={{ fontSize: '13px', color: 'var(--text-secondary)', fontWeight: 600, marginTop: '8px' }}>
+          Authenticating...
+        </div>
+      </div>
+    )
+  }
 
   if (auth.user && auth.approved && !auth.isGuest) {
     return null
@@ -39,6 +67,11 @@ export default function LandingPage() {
         event_label: 'guest_user'
       });
     }
+    localStorage.removeItem('tour_dashboard_v1');
+    localStorage.removeItem('tour_simulator_manual_v1');
+    localStorage.removeItem('tour_simulator_real_v1');
+    localStorage.removeItem('tour_journal_v1');
+    localStorage.removeItem('tour_log_trade_v1');
     auth.loginAsGuest()
     navigate('/dashboard')
   }
@@ -193,6 +226,16 @@ export default function LandingPage() {
         </div>
 
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <button onClick={() => document.getElementById('features').scrollIntoView({behavior: 'smooth'})} style={{
+            background: 'transparent', border: 'none',
+            color: 'var(--text-secondary)', padding: '10px 20px', borderRadius: '10px',
+            fontSize: '15px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s',
+          }}
+            onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}
+          >
+            Features
+          </button>
           <button onClick={handleGuestClick} style={{
             background: 'var(--bg-hover)', color: 'var(--text-primary)', border: '1px solid var(--border)',
             padding: '10px 20px', borderRadius: '10px',
@@ -376,57 +419,201 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Feature Bento Grid */}
-      <section style={{ maxWidth: '1200px', margin: '0 auto 120px', padding: '0 24px' }}>
-        <div style={{ textAlign: 'center', marginBottom: '64px' }}>
-          <h2 style={{ fontSize: '36px', fontWeight: 800, marginBottom: '16px', letterSpacing: '-1px' }}>
-            Everything you need in one platform.
+      {/* AI & Feature Bento Grid */}
+      <section id="features" style={{ maxWidth: '1200px', margin: '0 auto 120px', padding: '0 24px' }}>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-100px" }}
+          style={{ textAlign: 'center', marginBottom: '64px' }}
+        >
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '8px',
+            background: 'rgba(124,58,237,0.08)', border: '1px solid rgba(124,58,237,0.2)',
+            borderRadius: '999px', padding: '5px 18px', marginBottom: '24px',
+            fontSize: '13px', fontWeight: 700, color: '#7c3aed', letterSpacing: '0.3px',
+            textTransform: 'uppercase'
+          }}>
+            ✦ The Future of Trading Mastery
+          </div>
+          <h2 style={{ fontSize: '46px', fontWeight: 800, marginBottom: '20px', letterSpacing: '-1.5px', color: 'var(--text-primary)' }}>
+            Powered by next-generation <span style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>AI Intelligence</span>.
           </h2>
-          <p style={{ fontSize: '18px', color: 'var(--text-secondary)', maxWidth: '600px', margin: '0 auto' }}>
-            Stop switching between simulators, charting tools, and spreadsheets. MktSim unifies your entire learning and journaling workflow.
+          <p style={{ fontSize: '18px', color: 'var(--text-secondary)', maxWidth: '640px', margin: '0 auto', lineHeight: 1.6 }}>
+            Stop guessing your edge. MktSim unifies institutional simulators, automated journaling, and an AI Trade Coach into one powerful learning ecosystem.
           </p>
-        </div>
+        </motion.div>
 
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '24px', gridAutoRows: 'minmax(280px, auto)'
+          display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '24px', gridAutoRows: 'minmax(320px, auto)'
         }}>
-          {/* Card 1 */}
-          <div className="bento-card" style={{ gridColumn: 'span 8' }}>
-            <div style={{ fontSize: '32px', marginBottom: '20px' }}>📊</div>
+          {/* Card 1: AI Spotlight */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }} whileInView={{ opacity: 1, scale: 1 }} viewport={{ once: true }} transition={{ delay: 0.1 }}
+            className="bento-card" style={{ gridColumn: 'span 12', background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)', color: '#fff', border: '1px solid rgba(124,58,237,0.3)' }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', zIndex: 10 }}>
+              <div style={{ fontSize: '48px', marginBottom: '24px' }}>🤖</div>
+              <h3 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '16px' }}>AI Trade Coach & Strategy Enhancement</h3>
+              <p style={{ fontSize: '18px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, maxWidth: '600px' }}>
+                Your personal AI hedge fund manager. As you trade, our intelligence framework analyzes your execution patterns, detects behavioral flaws (like revenge trading), and quantitatively enhances your setups for maximum expectancy.
+              </p>
+              
+              <div style={{ display: 'flex', gap: '16px', marginTop: 'auto', flexWrap: 'wrap' }}>
+                {['Cognitive Bias Detection', 'Dynamic Expectancy Scoring', 'Algorithmic Optimization'].map((tag, i) => (
+                  <div key={i} style={{ background: 'rgba(255,255,255,0.1)', backdropFilter: 'blur(10px)', padding: '8px 16px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, border: '1px solid rgba(255,255,255,0.1)' }}>
+                    ✓ {tag}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* Abstract background art */}
+            <div style={{ position: 'absolute', right: 0, bottom: 0, width: '50%', height: '100%', pointerEvents: 'none', background: 'radial-gradient(circle at 80% 80%, rgba(124,58,237,0.2) 0%, transparent 60%)' }} />
+            <svg style={{ position: 'absolute', right: '40px', bottom: '40px', width: '300px', height: '200px', opacity: 0.1 }} viewBox="0 0 100 100">
+              <path d="M10,90 Q30,10 50,70 T90,30" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="90" cy="30" r="4" fill="#fff" />
+              <circle cx="50" cy="70" r="4" fill="#fff" />
+            </svg>
+          </motion.div>
+
+          {/* Card 2: Simulator */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }}
+            className="bento-card" style={{ gridColumn: 'span 7' }}
+          >
+            <div style={{ fontSize: '36px', marginBottom: '20px' }}>📊</div>
             <h3 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '12px' }}>Institutional Order Simulator</h3>
-            <p style={{ fontSize: '16px', color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: '80%' }}>
-              Experience true price action. Watch how buy and sell volumes interact organically to form bars. Our physics-based DOM accurately simulates liquidity consumption, sweeps, and block reactions.
+            <p style={{ fontSize: '16px', color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: '85%' }}>
+              Experience true price action. Watch how buy and sell volumes interact organically. Our physics-based DOM accurately simulates liquidity consumption, sweeps, and block reactions.
             </p>
-            <div style={{ position: 'absolute', bottom: '-40px', right: '40px', opacity: 0.05, fontSize: '200px', transform: 'rotate(-15deg)' }}>📈</div>
-          </div>
+            <div style={{ position: 'absolute', bottom: '-20px', right: '20px', opacity: 0.05, fontSize: '160px', transform: 'rotate(-10deg)' }}>📈</div>
+          </motion.div>
 
-          {/* Card 2 */}
-          <div className="bento-card" style={{ gridColumn: 'span 4' }}>
-            <div style={{ fontSize: '32px', marginBottom: '20px' }}>📓</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '12px' }}>Built-in Trade Journal</h3>
-            <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              Log simulated (or real) executions with asset tags, screenshots, and custom notes automatically tracked in the cloud.
+          {/* Card 3: Journal */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }}
+            className="bento-card" style={{ gridColumn: 'span 5' }}
+          >
+            <div style={{ fontSize: '36px', marginBottom: '20px' }}>📓</div>
+            <h3 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '12px' }}>Cloud Trade Journal</h3>
+            <p style={{ fontSize: '16px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+              Log simulated (or real) executions with asset tags, screenshots, and custom notes automatically tracked and synced.
             </p>
-          </div>
+          </motion.div>
+        </div>
+      </section>
 
-          {/* Card 3 */}
-          <div className="bento-card" style={{ gridColumn: 'span 5' }}>
-            <div style={{ fontSize: '32px', marginBottom: '20px' }}>⚡️</div>
-            <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '12px' }}>Advanced Analytics</h3>
-            <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              Uncover your edge with deep metrics. View your win-rate gauges, premium Trader Score, and daily P&L heatmap instantly.
-            </p>
+      {/* How It Works Section */}
+      <section style={{ maxWidth: '1100px', margin: '0 auto 120px', padding: '0 24px' }}>
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+          style={{ textAlign: 'center', marginBottom: '72px' }}
+        >
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: '8px',
+            background: 'rgba(139,92,246,0.08)', border: '1px solid rgba(139,92,246,0.2)',
+            borderRadius: '999px', padding: '5px 18px', marginBottom: '24px',
+            fontSize: '13px', fontWeight: 700, color: '#8b5cf6', letterSpacing: '0.3px'
+          }}>
+            ✦ How It Works
           </div>
+          <h2 style={{ fontSize: '40px', fontWeight: 800, letterSpacing: '-1.5px', marginBottom: '16px', color: 'var(--text-primary)' }}>
+            From zero to trading in<br />
+            <span style={{ background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              3 simple steps.
+            </span>
+          </h2>
+          <p style={{ fontSize: '18px', color: 'var(--text-secondary)', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
+            No complex setup. No prior knowledge required. Just open any tool and start learning real market mechanics.
+          </p>
+        </motion.div>
 
-          {/* Card 4 */}
-          <div className="bento-card" style={{ gridColumn: 'span 7' }}>
-            <div style={{ fontSize: '32px', marginBottom: '20px' }}>Rewind & Replay</div>
-            <h3 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '12px' }}>Perfect Your Timing</h3>
-            <p style={{ fontSize: '16px', color: 'var(--text-secondary)', lineHeight: 1.6, maxWidth: '80%' }}>
-              Missed a setup? You can manually pause, speed up, or rewind the simulation to understand complex structural changes before committing to a trade.
-            </p>
-            <div style={{ position: 'absolute', bottom: '-20px', right: '20px', opacity: 0.1, fontSize: '160px' }}>⏪</div>
-          </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '2px', position: 'relative' }}>
+          {/* Connector line */}
+          <div style={{
+            position: 'absolute', top: '52px', left: 'calc(16.67% + 20px)', right: 'calc(16.67% + 20px)',
+            height: '2px',
+            background: 'linear-gradient(90deg, rgba(59,130,246,0.3), rgba(139,92,246,0.3), rgba(16,185,129,0.3))',
+            display: 'none', // hidden on mobile, shown via grid layout
+          }} />
+
+          {[
+            {
+              num: '01',
+              icon: '🚀',
+              color: '#3b82f6',
+              bg: 'rgba(59,130,246,0.08)',
+              border: 'rgba(59,130,246,0.15)',
+              title: 'Open any Tool',
+              desc: 'Sign up free or jump in as Guest. From the Dashboard, click "Basic Market Movements" to open the live simulator — no tutorials needed, it\'s self-explanatory.',
+              cues: ['Free account', 'No setup', 'Works immediately'],
+            },
+            {
+              num: '02',
+              icon: '📈',
+              color: '#8b5cf6',
+              bg: 'rgba(139,92,246,0.08)',
+              border: 'rgba(139,92,246,0.15)',
+              title: 'Simulate & Log Trades',
+              desc: 'Watch real order flow drive price. Pause, rewind, and mark key levels. When you spot a setup — log it in the Trade Journal with one click.',
+              cues: ['Pause anytime', 'Mark levels', 'Log instantly'],
+            },
+            {
+              num: '03',
+              icon: '📊',
+              color: '#10b981',
+              bg: 'rgba(16,185,129,0.08)',
+              border: 'rgba(16,185,129,0.15)',
+              title: 'Reveal Your Edge',
+              desc: 'Open Statistics. See your win rate, equity curve, best performing days, and a radar chart that shows exactly where your edge is — or where you\'re losing it.',
+              cues: ['Equity curve', 'Win-rate gauge', 'Trader Score'],
+            },
+          ].map((step, i) => (
+            <div key={i} style={{
+              padding: '36px 32px',
+              position: 'relative',
+              borderLeft: i > 0 ? '1px dashed var(--border)' : 'none',
+            }}>
+              {/* Step number */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '28px' }}>
+                <div style={{
+                  width: '52px', height: '52px', borderRadius: '16px',
+                  background: step.bg, border: `1px solid ${step.border}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '24px', flexShrink: 0,
+                }}>
+                  {step.icon}
+                </div>
+                <div style={{
+                  fontSize: '13px', fontWeight: 800, color: step.color,
+                  letterSpacing: '1px', opacity: 0.6,
+                }}>STEP {step.num}</div>
+              </div>
+
+              <h3 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '12px', letterSpacing: '-0.5px', color: 'var(--text-primary)' }}>
+                {step.title}
+              </h3>
+              <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '24px' }}>
+                {step.desc}
+              </p>
+
+              {/* Cue pills */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {step.cues.map((cue, j) => (
+                  <div key={j} style={{
+                    background: step.bg,
+                    border: `1px solid ${step.border}`,
+                    color: step.color,
+                    fontSize: '12px', fontWeight: 700,
+                    padding: '4px 12px', borderRadius: '999px',
+                    letterSpacing: '0.2px',
+                  }}>
+                    ✓ {cue}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -505,7 +692,7 @@ export default function LandingPage() {
             Ready to completely transform your<br/>trading mechanics?
           </h2>
           <p style={{ fontSize: '18px', color: 'rgba(255,255,255,0.85)', marginBottom: '40px', maxWidth: '500px', margin: '0 auto 40px', position: 'relative', zIndex: 10 }}>
-            Join the platform that focuses on real mechanics, not just hindsight charting. Free for everyone.
+            Join the platform that focuses on real mechanics, not just hindsight charting. Experience true market environments.
           </p>
           
           <button onClick={openSignup} style={{

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { SESSIONS } from '../../../utils/tradeMetrics'
+import { startLogTradeTour } from '../../../components/ProductTourManager'
 
 // ── Helper ────────────────────────────────────────────────────
 function today() {
@@ -48,9 +49,9 @@ const inputStyle = {
 }
 
 // ── Sub-components ────────────────────────────────────────────
-function FGroup({ label, children, style = {} }) {
+function FGroup({ label, children, style = {}, id }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', ...style }}>
+    <div id={id} style={{ display: 'flex', flexDirection: 'column', gap: '5px', ...style }}>
       <label style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
         {label}
       </label>
@@ -380,6 +381,10 @@ export default function LogTradeView({ form, setForm, onSubmit, onCancel, editin
   const theme = document.documentElement.getAttribute('data-theme') || 'light'
   const pair = form.pair || 'EURUSD'
 
+  useEffect(() => {
+    if (!editingTradeId) startLogTradeTour();
+  }, [editingTradeId])
+
   function setF(field, val) {
     setForm(f => ({ ...f, [field]: val }))
   }
@@ -411,6 +416,14 @@ export default function LogTradeView({ form, setForm, onSubmit, onCancel, editin
           </p>
         </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button onClick={() => startLogTradeTour(true)} style={{
+            background: 'none', border: '1.5px solid var(--border)',
+            color: 'var(--text-secondary)', padding: '6px 14px', borderRadius: '10px',
+            fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center',
+            marginRight: '8px'
+          }}>
+            💡 How it works
+          </button>
           <button onClick={onCancel} style={{ background: 'var(--bg-base)', border: '1.5px solid var(--border)', borderRadius: '12px', padding: '8px 18px', fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>
             Cancel
           </button>
@@ -446,7 +459,7 @@ export default function LogTradeView({ form, setForm, onSubmit, onCancel, editin
           </div>
 
           {/* Quick Pair Selector - Moved here for better UX */}
-          <div style={{ flex: 1, maxWidth: '240px' }}>
+          <div id="tour-log-pair" style={{ flex: 1, maxWidth: '240px' }}>
             <AssetAutocomplete value={form.pair} onChange={val => setF('pair', val)} />
           </div>
 
@@ -471,7 +484,7 @@ export default function LogTradeView({ form, setForm, onSubmit, onCancel, editin
         <div style={{ marginBottom: '22px' }}>
           <SectionLabel color="var(--accent-blue)" label="Trade Identity" />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
-            <FGroup label="Direction">
+            <FGroup id="tour-log-dir" label="Direction">
               <CustomSelect value={form.dir} onChange={val => setF('dir', val)} options={[{ value: 'long', label: '📈 Long' }, { value: 'short', label: '📉 Short' }]} />
             </FGroup>
             <FGroup label="Session">
@@ -494,16 +507,16 @@ export default function LogTradeView({ form, setForm, onSubmit, onCancel, editin
         <div style={{ marginBottom: '22px' }}>
           <SectionLabel color="var(--accent-green)" label="Price Levels" />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
-            <FGroup label="Entry *">
+            <FGroup id="tour-log-entry" label="Entry *">
               <StyledInput type="number" step="0.00001" value={form.entry} onChange={e => setF('entry', e.target.value)} placeholder="1.08520" />
             </FGroup>
             <FGroup label="Exit (blank if open)">
               <StyledInput type="number" step="0.00001" value={form.exit} onChange={e => setF('exit', e.target.value)} placeholder="—" />
             </FGroup>
-            <FGroup label="Stop Loss *">
+            <FGroup id="tour-log-sl" label="Stop Loss *">
               <StyledInput type="number" step="0.00001" value={form.sl} onChange={e => setF('sl', e.target.value)} placeholder="1.08200" />
             </FGroup>
-            <FGroup label="Take Profit *">
+            <FGroup id="tour-log-tp" label="Take Profit *">
               <StyledInput type="number" step="0.00001" value={form.tp} onChange={e => setF('tp', e.target.value)} placeholder="1.09200" />
             </FGroup>
           </div>
@@ -600,7 +613,7 @@ export default function LogTradeView({ form, setForm, onSubmit, onCancel, editin
         <button onClick={onCancel} style={{ background: 'var(--bg-base)', border: '1.5px solid var(--border)', borderRadius: '12px', padding: '10px 24px', fontSize: '14px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer' }}>
           Cancel
         </button>
-        <button onClick={onSubmit}
+        <button id="tour-log-submit" onClick={onSubmit}
           style={{ background: 'var(--accent-blue)', border: 'none', borderRadius: '12px', padding: '10px 32px', fontSize: '14px', fontWeight: 700, color: 'white', cursor: 'pointer', boxShadow: '0 4px 14px rgba(59,130,246,0.3)', transition: 'all 0.2s' }}
           onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
           onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}

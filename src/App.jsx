@@ -6,11 +6,18 @@ import JournalDashboard from './pages/tools/journal/JournalDashboard'
 import AuthConfirm from './pages/AuthConfirm'
 import PendingApproval from './pages/PendingApproval'
 import ProtectedRoute from './components/ProtectedRoute'
+import { useProductTour } from './components/ProductTourManager'
 import './index.css'
+
+function TourWrapper() {
+  useProductTour()
+  return null
+}
 
 export default function App() {
   return (
     <BrowserRouter>
+      <TourWrapper />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth/confirm" element={<AuthConfirm />} />

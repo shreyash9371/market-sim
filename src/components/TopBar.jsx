@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useMarketStore } from '../store/useMarketStore'
+import { startTourManually } from './ProductTourManager'
 
 export default function TopBar({
   onTogglePanel, onGenerate,
@@ -130,7 +131,7 @@ export default function TopBar({
       <div style={{ width: '1px', height: '32px', background: 'var(--border)' }} />
 
       {/* Toggle panel */}
-      <button onClick={onTogglePanel} style={{
+      <button id="tour-manual-orders" onClick={onTogglePanel} style={{
         background: 'var(--bg-card)', border: '1.5px solid var(--border)',
         color: 'var(--text-primary)', fontSize: '14px', fontWeight: 600,
         padding: '10px 20px', borderRadius: 'var(--radius-sm)',
@@ -149,7 +150,7 @@ export default function TopBar({
       </button>
 
       {/* Generate */}
-      <button onClick={onGenerate} style={{
+      <button id="tour-manual-generate" onClick={onGenerate} style={{
         background: 'var(--accent-blue)', border: 'none', color: '#fff',
         fontSize: '14px', fontWeight: 600, padding: '10px 20px',
         borderRadius: 'var(--radius-sm)', cursor: 'pointer',
@@ -259,7 +260,7 @@ export default function TopBar({
             }}>×</button>
           </div>
 
-          <button onClick={handleRun} style={{
+          <button id="tour-manual-run" onClick={handleRun} style={{
             background: 'var(--accent-green)', border: 'none', color: '#fff',
             fontSize: '14px', fontWeight: 700, padding: '10px 28px',
             borderRadius: 'var(--radius-sm)', cursor: 'pointer',
@@ -301,7 +302,7 @@ export default function TopBar({
             </button>
             <div style={{ width: '1px', height: '24px', background: 'var(--border)' }} />
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div id="tour-start-price" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <input 
                 type="text" 
                 placeholder="Start Price..." 
@@ -327,6 +328,7 @@ export default function TopBar({
             <div style={{ width: '1px', height: '24px', background: 'var(--border)' }} />
 
             <button 
+              id="tour-play-pause"
               onClick={() => store.setPlaying(!store.playbackPlaying)}
               style={{
                 background: store.playbackPlaying ? 'var(--accent-red)' : 'var(--accent-green)',
@@ -361,7 +363,7 @@ export default function TopBar({
               </div>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '12px' }}>
+            <div id="tour-speed-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: '12px' }}>
               <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Speed {store.playbackSpeed}x</span>
               <input 
                 type="range" min="1" max="10" step="1"
@@ -372,7 +374,7 @@ export default function TopBar({
             </div>
 
             {/* Market Condition Selector */}
-            <div ref={condMenuRef} style={{ position: 'relative' }}>
+            <div id="tour-conditions" ref={condMenuRef} style={{ position: 'relative' }}>
               <button
                 onClick={() => setCondMenuOpen(o => !o)}
                 style={{
@@ -422,6 +424,7 @@ export default function TopBar({
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)' }}>Real Market</span>
           <button 
+            id="tour-trade-btn"
             onClick={() => store.toggleRealMarket()}
             style={{
               width: '36px', height: '20px', borderRadius: '10px',
@@ -456,6 +459,17 @@ export default function TopBar({
           Market Open
         </span>
         </div>
+
+        {/* How It Works Button (Simulator) */}
+        <button onClick={() => {
+          import('./ProductTourManager').then(m => m.startSimulatorTour(store.isRealMarket, true))
+        }} style={{
+          background: 'none', border: '1.5px solid var(--border)',
+          color: 'var(--text-secondary)', padding: '6px 14px', borderRadius: '10px',
+          fontSize: '13px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center'
+        }}>
+          💡 How it works
+        </button>
       </div>
 
       <style>{`

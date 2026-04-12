@@ -36,7 +36,7 @@ export default function ProtectedRoute({ children }) {
           .eq('id', user.id)
           .single()
 
-        setApproved(profile?.approved ?? true)  // TEMP: default true while free
+        setApproved(true)  // TEMP: hardcode true to bypass gate
       } catch (e) {
         setApproved(true)  // TEMP: default true while free
       }

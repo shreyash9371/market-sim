@@ -6,6 +6,7 @@ import OrderPanel from '../../components/OrderPanel'
 import PriceChart from '../../components/PriceChart'
 import BidAskTable from '../../components/BidAskTable'
 import { useState, useEffect } from 'react'
+import { startSimulatorTour } from '../../components/ProductTourManager'
 
 export default function BasicSimulator() {
   const [panelOpen, setPanelOpen] = useState(false)
@@ -21,6 +22,10 @@ export default function BasicSimulator() {
     }, intervalTime)
     return () => clearInterval(timer)
   }, [store.isRealMarket, store.playbackPlaying, store.playbackSpeed])
+
+  useEffect(() => {
+    startSimulatorTour(store.isRealMarket)
+  }, [store.isRealMarket])
 
   const _meta = auth.user?.user_metadata || {}
   const firstName = _meta.first_name || _meta.given_name || _meta.full_name?.split(' ')[0] || _meta.name?.split(' ')[0] || 'Trader'
@@ -174,11 +179,13 @@ export default function BasicSimulator() {
           />
         </div>
 
-        <BidAskTable
-          orderBook={store.orderBook}
-          onGenerate={store.generateOrderBook}
-          onUpdateLevel={store.updateOrderBookLevel}
-        />
+        <div id="tour-dom-panel" style={{ height: '100%', overflow: 'hidden' }}>
+          <BidAskTable
+            orderBook={store.orderBook}
+            onGenerate={store.generateOrderBook}
+            onUpdateLevel={store.updateOrderBookLevel}
+          />
+        </div>
       </div>
     </div>
   )
