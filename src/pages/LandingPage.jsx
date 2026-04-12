@@ -737,7 +737,7 @@ export default function LandingPage() {
             </svg>
             Discord Community (Help / Support)
           </a>
-          <a href="mailto:support@aitradingjournal.com" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'} onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}>
+          <a href="mailto:Shreyashshahane2004@gmail.com" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = 'var(--text-primary)'} onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}>
             <span style={{ fontSize: '18px' }}>✉️</span>
             Contact via Email
           </a>

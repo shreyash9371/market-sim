@@ -51,6 +51,7 @@ supabase.auth.onAuthStateChange((event, session) => {
       supabase.from('profiles')
         .upsert({
           id: globalUser.id,
+          email: session.user.email || globalUser.email,
           first_name: firstName || undefined,
           last_name: lastName || undefined,
           approved: true,
