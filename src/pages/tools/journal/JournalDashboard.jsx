@@ -591,7 +591,7 @@ export default function JournalDashboard() {
         throw new Error('Please add a free VITE_GROQ_API_KEY to your .env file. Get one free at console.groq.com')
       }
 
-      const systemPrompt = `You are a smart, concise trading journal analyst. You have access to the user's trade history with pre-calculated values.
+      const systemPrompt = `You are a smart, concise trading journal analyst. You are currently speaking with ${firstName}. You MUST address them by their name in your responses. You have access to the full trade history, including all details and attached images.
 
 STRICT RULES:
 - Be brief. No long paragraphs.
@@ -611,10 +611,10 @@ ${JSON.stringify(trades.map(t => {
   return {
     date: t.date, pair: t.pair, dir: t.dir, session: t.session,
     entry: t.entry, exit: t.exit ?? 'open', sl: t.sl, tp: t.tp,
-    lots: t.lots, pipval: t.pipval,
+    lots: t.lots, pipval: t.pipval, commissions: t.commissions,
     pnl_usd: pnl ? pnl.usd : 'open',
     rr: parseFloat(rr.toFixed(2)),
-    emotion: t.emotion, notes: t.notes, strategy: t.strategy,
+    emotion: t.emotion, notes: t.notes, strategy: t.strategy, images: t.images || [],
   }
 }), null, 2)}`
 
