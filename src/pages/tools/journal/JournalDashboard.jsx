@@ -605,7 +605,7 @@ STRICT RULES:
 - If no trades match, say so in one sentence (or put it in the JSON 'summary').
 
 Trade data (pre-calculated values are already correct, do NOT recalculate them yourself):
-${JSON.stringify(trades.map(t => {
+${JSON.stringify(trades.slice(-100).map(t => {
   const pnl = calcPnl(t)
   const rr = calcRR(t)
   return {
@@ -614,7 +614,9 @@ ${JSON.stringify(trades.map(t => {
     lots: t.lots, pipval: t.pipval, commissions: t.commissions,
     pnl_usd: pnl ? pnl.usd : 'open',
     rr: parseFloat(rr.toFixed(2)),
-    emotion: t.emotion, notes: t.notes, strategy: t.strategy, images: t.images || [],
+    emotion: t.emotion ? t.emotion.substring(0, 100) : '',
+    notes: t.notes ? t.notes.substring(0, 100) : '',
+    strategy: t.strategy, images_attached: (t.images && t.images.length > 0) ? `${t.images.length} image(s)` : 'None',
   }
 }), null, 2)}`
 
@@ -636,7 +638,8 @@ ${JSON.stringify(trades.map(t => {
             { role: 'system', content: systemPrompt },
             ...geminiMessages
           ],
-          temperature: 0.7
+          temperature: 0.7,
+          max_tokens: 1024
         })
       })
 
