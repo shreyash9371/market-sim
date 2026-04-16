@@ -189,7 +189,7 @@ export default function AuthPanel({ open, onClose, defaultTab = 'login' }) {
         position: 'fixed',
         top: 0, right: 0,
         height: '100vh',
-        width: '400px',
+        width: '100%', maxWidth: '400px',
         background: 'var(--bg-panel)',
         boxShadow: '-8px 0 40px rgba(0,0,0,0.15)',
         zIndex: 201,

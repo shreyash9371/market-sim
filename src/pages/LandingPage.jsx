@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/useAuthStore'
 export default function LandingPage() {
   const [panelOpen, setPanelOpen] = useState(false)
   const [defaultTab, setDefaultTab] = useState('login')
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [searchParams] = useSearchParams()
   const wasKicked = searchParams.get('kicked') === 'true'
   const hasError = searchParams.get('error') === 'confirmation_failed'
@@ -114,6 +115,18 @@ export default function LandingPage() {
         .delay-2 { animation-delay: 0.2s; }
         .delay-3 { animation-delay: 0.3s; }
         
+        .mobile-menu-btn {
+          display: none;
+          align-items: center;
+          justify-content: center;
+          background: var(--bg-panel);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 8px;
+          color: var(--text-primary);
+          cursor: pointer;
+        }
+        
         .bento-card {
           background: var(--bg-panel);
           border: 1px solid var(--border);
@@ -173,6 +186,152 @@ export default function LandingPage() {
           opacity: 0; transition: opacity 0.3s ease;
         }
         .glow-button:hover::before { opacity: 1; }
+        
+        @media (max-width: 768px) {
+          .glass-nav {
+            padding: 16px !important;
+            height: auto !important;
+            flex-direction: column;
+            gap: 0 !important;
+          }
+          .glass-nav > div:first-child {
+            justify-content: space-between;
+            width: 100%;
+          }
+          .mobile-menu-btn {
+            display: flex !important;
+          }
+          .nav-links {
+            display: none !important;
+          }
+          .nav-links.mobile-open {
+            display: flex !important;
+            flex-direction: column !important;
+            width: 100%;
+            margin-top: 16px;
+            gap: 8px !important;
+            padding-bottom: 8px;
+          }
+          .nav-links.mobile-open > * {
+            width: 100% !important;
+            justify-content: flex-start;
+            text-align: left;
+            padding: 12px 16px !important;
+            font-size: 15px !important;
+            margin: 0 !important;
+          }
+          .nav-links.mobile-open > *:last-child {
+            margin-top: 8px !important;
+            justify-content: center;
+            text-align: center;
+          }
+          .hero-section {
+            padding: 60px 16px 40px !important;
+          }
+          .hero-title {
+            font-size: 36px !important;
+            line-height: 1.1 !important;
+            letter-spacing: -1px !important;
+            margin-bottom: 20px !important;
+          }
+          .hero-subtitle {
+            font-size: 15px !important;
+            margin-bottom: 24px !important;
+          }
+          .hero-buttons {
+            flex-direction: column !important;
+            width: 100%;
+            gap: 12px !important;
+          }
+          .hero-buttons > * {
+            width: 100% !important;
+          }
+          .glow-button button {
+            width: 100% !important;
+            justify-content: center;
+            padding: 14px 20px !important;
+            font-size: 16px !important;
+          }
+          .hero-buttons > button {
+            padding: 14px 20px !important;
+            font-size: 16px !important;
+          }
+          .hero-update-badge {
+            flex-direction: column;
+            border-radius: 16px !important;
+            padding: 8px 12px !important;
+            text-align: center;
+            font-size: 12px !important;
+            margin-bottom: 24px !important;
+          }
+          .mockup-container {
+            flex-direction: column !important;
+            height: auto !important;
+          }
+          .mockup-left {
+            border-right: none !important;
+            border-bottom: 1px solid var(--border);
+            padding: 24px !important;
+          }
+          .mockup-right {
+            padding: 24px !important;
+          }
+          .bento-card-half {
+            grid-column: span 12 !important;
+          }
+          .ai-spotlight-title {
+            font-size: 24px !important;
+          }
+          .deep-dive-container {
+            flex-direction: column !important;
+            gap: 32px !important;
+          }
+          .cta-box {
+            padding: 40px 20px !important;
+          }
+          .cta-title {
+            font-size: 28px !important;
+            line-height: 1.2 !important;
+          }
+          .cta-box p {
+            font-size: 15px !important;
+            margin-bottom: 24px !important;
+          }
+          .cta-box button {
+            width: 100% !important;
+            padding: 14px 20px !important;
+            font-size: 16px !important;
+          }
+          .footer-links {
+            flex-direction: column !important;
+            gap: 16px !important;
+          }
+          .section-title {
+            font-size: 32px !important;
+            line-height: 1.1 !important;
+            letter-spacing: -1px !important;
+          }
+          .section-subtitle {
+            font-size: 16px !important;
+            padding: 0 8px;
+          }
+          .stats-cards-container {
+            flex-direction: column !important;
+            gap: 12px !important;
+          }
+          .stats-cards-container > div {
+             height: auto !important;
+             padding: 16px !important;
+          }
+          .step-container {
+            padding: 24px 16px !important;
+            border-left: none !important;
+            border-bottom: 1px dashed var(--border);
+          }
+          .bento-card {
+            padding: 24px !important;
+          }
+        }
       `}</style>
 
       {/* Hero Backgrounds */}
@@ -200,32 +359,43 @@ export default function LandingPage() {
         justifyContent: 'space-between',
         transition: 'all 0.3s ease'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <div style={{
-            width: '40px', height: '40px', borderRadius: '12px',
-            background: 'linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', boxShadow: '0 8px 16px rgba(59,130,246,0.25)',
-            border: '1px solid rgba(255,255,255,0.2)'
-          }}>
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M18 20V10"></path>
-              <path d="M12 20V4"></path>
-              <path d="M6 20V14"></path>
-              <path d="M4 14h4"></path>
-              <path d="M10 4h4"></path>
-              <path d="M16 10h4"></path>
-            </svg>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <div style={{
+              width: '40px', height: '40px', borderRadius: '12px',
+              background: 'linear-gradient(135deg, #3b82f6 0%, #1e3a8a 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: '#fff', boxShadow: '0 8px 16px rgba(59,130,246,0.25)',
+              border: '1px solid rgba(255,255,255,0.2)'
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M18 20V10"></path>
+                <path d="M12 20V4"></path>
+                <path d="M6 20V14"></path>
+                <path d="M4 14h4"></path>
+                <path d="M10 4h4"></path>
+                <path d="M16 10h4"></path>
+              </svg>
+            </div>
+            <span style={{
+              fontSize: '24px', fontWeight: 800,
+              color: 'var(--text-primary)', letterSpacing: '-0.5px',
+            }}>
+              MktSim
+            </span>
           </div>
-          <span style={{
-            fontSize: '24px', fontWeight: 800,
-            color: 'var(--text-primary)', letterSpacing: '-0.5px',
-          }}>
-            MktSim
-          </span>
+
+          {/* Mobile menu button */}
+          <button className="mobile-menu-btn" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+          </button>
         </div>
 
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+        <div className={`nav-links ${isMobileMenuOpen ? 'mobile-open' : ''}`} style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <button onClick={() => document.getElementById('features').scrollIntoView({behavior: 'smooth'})} style={{
             background: 'transparent', border: 'none',
             color: 'var(--text-secondary)', padding: '10px 20px', borderRadius: '10px',
@@ -286,7 +456,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section style={{
+      <section className="hero-section" style={{
         padding: '140px 24px 80px',
         textAlign: 'center',
         maxWidth: '1000px',
@@ -294,7 +464,7 @@ export default function LandingPage() {
         position: 'relative',
         zIndex: 10
       }}>
-        <div className="animate-fade-up" style={{
+        <div className="animate-fade-up hero-update-badge" style={{
           display: 'inline-flex', alignItems: 'center', gap: '10px',
           background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(10px)',
           border: '1px solid var(--border)',
@@ -310,7 +480,7 @@ export default function LandingPage() {
           Now featuring complete Trading Journal integration ✨
         </div>
 
-        <h1 className="animate-fade-up delay-1" style={{
+        <h1 className="animate-fade-up delay-1 hero-title" style={{
           fontSize: 'clamp(52px, 7vw, 90px)', fontWeight: 800,
           color: 'var(--text-primary)',
           lineHeight: 1.05, letterSpacing: '-3px',
@@ -322,7 +492,7 @@ export default function LandingPage() {
           </span>
         </h1>
 
-        <p className="animate-fade-up delay-2" style={{
+        <p className="animate-fade-up delay-2 hero-subtitle" style={{
           fontSize: '21px', color: 'var(--text-secondary)',
           lineHeight: 1.6, marginBottom: '56px',
           maxWidth: '720px', margin: '0 auto 56px',
@@ -332,7 +502,7 @@ export default function LandingPage() {
           theory and real prop-firm execution. Master liquidity, order blocks, and built-in journaling.
         </p>
 
-        <div className="animate-fade-up delay-3" style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div className="animate-fade-up delay-3 hero-buttons" style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <div className="glow-button" style={{ borderRadius: '16px' }}>
             <button onClick={openSignup} style={{
               background: 'linear-gradient(135deg, var(--accent-blue) 0%, #1e3a8a 100%)',
@@ -375,7 +545,7 @@ export default function LandingPage() {
         maxWidth: '1200px', margin: '0 auto 120px', padding: '0 24px',
         position: 'relative', zIndex: 10
       }}>
-        <div style={{
+        <div className="mockup-container" style={{
           position: 'relative',
           height: '460px', borderRadius: '24px',
           background: 'var(--bg-panel)',
@@ -385,7 +555,7 @@ export default function LandingPage() {
           display: 'flex'
         }}>
           {/* Mockup Left - Simulator */}
-          <div style={{ flex: 1, padding: '40px', borderRight: '1px solid var(--border)', position: 'relative' }}>
+          <div className="mockup-left" style={{ flex: 1, padding: '40px', borderRight: '1px solid var(--border)', position: 'relative' }}>
              <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ color: 'var(--accent-blue)' }}>●</span> Simulator Engine
              </h3>
@@ -402,11 +572,11 @@ export default function LandingPage() {
           </div>
 
           {/* Mockup Right - Journal */}
-          <div style={{ flex: 1, padding: '40px', background: 'var(--bg-base)', position: 'relative', overflow: 'hidden' }}>
+          <div className="mockup-right" style={{ flex: 1, padding: '40px', background: 'var(--bg-base)', position: 'relative', overflow: 'hidden' }}>
              <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ color: '#8b5cf6' }}>●</span> Trading Statistics
              </h3>
-             <div style={{ display: 'flex', gap: '20px', marginBottom: '24px' }}>
+             <div className="stats-cards-container" style={{ display: 'flex', gap: '20px', marginBottom: '24px' }}>
                <div style={{ flex: 1, height: '100px', background: 'var(--bg-panel)', borderRadius: '16px', border: '1px solid var(--border)', padding: '20px' }}>
                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '8px' }}>Trader Score</div>
                  <div style={{ fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)'}}>94.2</div>
@@ -450,10 +620,10 @@ export default function LandingPage() {
           }}>
             ✦ The Future of Trading Mastery
           </div>
-          <h2 style={{ fontSize: '46px', fontWeight: 800, marginBottom: '20px', letterSpacing: '-1.5px', color: 'var(--text-primary)' }}>
+          <h2 className="section-title" style={{ fontSize: '46px', fontWeight: 800, marginBottom: '20px', letterSpacing: '-1.5px', color: 'var(--text-primary)' }}>
             Powered by next-generation <span style={{ background: 'linear-gradient(135deg, #7c3aed, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>AI Intelligence</span>.
           </h2>
-          <p style={{ fontSize: '18px', color: 'var(--text-secondary)', maxWidth: '640px', margin: '0 auto', lineHeight: 1.6 }}>
+          <p className="section-subtitle" style={{ fontSize: '18px', color: 'var(--text-secondary)', maxWidth: '640px', margin: '0 auto', lineHeight: 1.6 }}>
             Stop guessing your edge. MktSim unifies institutional simulators, automated journaling, and an AI Trade Coach into one powerful learning ecosystem.
           </p>
         </motion.div>
@@ -468,7 +638,7 @@ export default function LandingPage() {
           >
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', zIndex: 10 }}>
               <div style={{ fontSize: '48px', marginBottom: '24px' }}>🤖</div>
-              <h3 style={{ fontSize: '32px', fontWeight: 800, marginBottom: '16px' }}>AI Trade Coach & Strategy Enhancement</h3>
+              <h3 className="ai-spotlight-title" style={{ fontSize: '32px', fontWeight: 800, marginBottom: '16px' }}>AI Trade Coach & Strategy Enhancement</h3>
               <p style={{ fontSize: '18px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, maxWidth: '600px' }}>
                 Your personal AI hedge fund manager. As you trade, our intelligence framework analyzes your execution patterns, detects behavioral flaws (like revenge trading), and quantitatively enhances your setups for maximum expectancy.
               </p>
@@ -493,7 +663,7 @@ export default function LandingPage() {
           {/* Card 2: Simulator */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }}
-            className="bento-card" style={{ gridColumn: 'span 7' }}
+            className="bento-card bento-card-half" style={{ gridColumn: 'span 7' }}
           >
             <div style={{ fontSize: '36px', marginBottom: '20px' }}>📊</div>
             <h3 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '12px' }}>Institutional Order Simulator</h3>
@@ -506,7 +676,7 @@ export default function LandingPage() {
           {/* Card 3: Journal */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }}
-            className="bento-card" style={{ gridColumn: 'span 5' }}
+            className="bento-card bento-card-half" style={{ gridColumn: 'span 5' }}
           >
             <div style={{ fontSize: '36px', marginBottom: '20px' }}>📓</div>
             <h3 style={{ fontSize: '24px', fontWeight: 800, marginBottom: '12px' }}>Cloud Trade Journal</h3>
@@ -531,13 +701,13 @@ export default function LandingPage() {
           }}>
             ✦ How It Works
           </div>
-          <h2 style={{ fontSize: '40px', fontWeight: 800, letterSpacing: '-1.5px', marginBottom: '16px', color: 'var(--text-primary)' }}>
+          <h2 className="section-title" style={{ fontSize: '40px', fontWeight: 800, letterSpacing: '-1.5px', marginBottom: '16px', color: 'var(--text-primary)' }}>
             From zero to trading in<br />
             <span style={{ background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
               3 simple steps.
             </span>
           </h2>
-          <p style={{ fontSize: '18px', color: 'var(--text-secondary)', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
+          <p className="section-subtitle" style={{ fontSize: '18px', color: 'var(--text-secondary)', maxWidth: '560px', margin: '0 auto', lineHeight: 1.6 }}>
             No complex setup. No prior knowledge required. Just open any tool and start learning real market mechanics.
           </p>
         </motion.div>
@@ -583,7 +753,7 @@ export default function LandingPage() {
               cues: ['Equity curve', 'Win-rate gauge', 'Trader Score'],
             },
           ].map((step, i) => (
-            <div key={i} style={{
+            <div className="step-container" key={i} style={{
               padding: '36px 32px',
               position: 'relative',
               borderLeft: i > 0 ? '1px dashed var(--border)' : 'none',
@@ -638,12 +808,12 @@ export default function LandingPage() {
         borderTop: '1px solid var(--border)',
         borderBottom: '1px solid var(--border)'
       }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '60px', flexWrap: 'wrap' }}>
+        <div className="deep-dive-container" style={{ maxWidth: '1100px', margin: '0 auto', display: 'flex', alignItems: 'center', gap: '60px', flexWrap: 'wrap' }}>
            <div style={{ flex: '1 1 400px' }}>
-             <h2 style={{ fontSize: '36px', fontWeight: 800, marginBottom: '24px', letterSpacing: '-1px' }}>
+             <h2 className="section-title" style={{ fontSize: '36px', fontWeight: 800, marginBottom: '24px', letterSpacing: '-1px' }}>
                 Your Edge, <span style={{ color: '#10b981' }}>Quantified.</span>
              </h2>
-             <p style={{ fontSize: '18px', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '32px' }}>
+             <p className="section-subtitle" style={{ fontSize: '18px', color: 'var(--text-secondary)', lineHeight: 1.7, marginBottom: '32px' }}>
                The brand new Trading Statistics dashboard turns your logs into powerful actionable insights. Stop guessing why you are losing and let the data reveal your optimal trading days, assets, and setups.
              </p>
              <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -688,7 +858,7 @@ export default function LandingPage() {
 
       {/* Beautiful CTA */}
       <section style={{ padding: '120px 24px', textAlign: 'center' }}>
-        <div style={{
+        <div className="cta-box" style={{
           background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
           borderRadius: '32px',
           padding: '80px 40px',
@@ -702,7 +872,7 @@ export default function LandingPage() {
           <div style={{ position: 'absolute', top: '-50%', left: '-10%', width: '500px', height: '500px', background: 'radial-gradient(circle, rgba(255,255,255,0.1), transparent 70%)', borderRadius: '50%' }} />
           <div style={{ position: 'absolute', bottom: '-50%', right: '-10%', width: '600px', height: '600px', background: 'radial-gradient(circle, rgba(255,255,255,0.15), transparent 70%)', borderRadius: '50%' }} />
           
-          <h2 style={{ fontSize: '42px', fontWeight: 800, color: '#fff', marginBottom: '20px', letterSpacing: '-1.5px', position: 'relative', zIndex: 10 }}>
+          <h2 className="cta-title" style={{ fontSize: '42px', fontWeight: 800, color: '#fff', marginBottom: '20px', letterSpacing: '-1.5px', position: 'relative', zIndex: 10 }}>
             Ready to completely transform your<br/>trading mechanics?
           </h2>
           <p style={{ fontSize: '18px', color: 'rgba(255,255,255,0.85)', marginBottom: '40px', maxWidth: '500px', margin: '0 auto 40px', position: 'relative', zIndex: 10 }}>
@@ -730,7 +900,7 @@ export default function LandingPage() {
         textAlign: 'center', padding: '40px', borderTop: '1px solid var(--border)',
         fontSize: '14px', color: 'var(--text-dim)', background: 'var(--bg-panel)'
       }}>
-        <div style={{ marginBottom: '24px', display: 'flex', gap: '32px', justifyContent: 'center' }}>
+        <div className="footer-links" style={{ marginBottom: '24px', display: 'flex', gap: '32px', justifyContent: 'center' }}>
           <a href="https://discord.gg/qMGJaYp7hP" target="_blank" rel="noreferrer" style={{ color: 'var(--text-secondary)', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', transition: 'color 0.2s' }} onMouseEnter={e => e.currentTarget.style.color = '#5865F2'} onMouseLeave={e => e.currentTarget.style.color = 'var(--text-secondary)'}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
