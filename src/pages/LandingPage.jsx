@@ -282,9 +282,19 @@ export default function LandingPage() {
           .ai-spotlight-title {
             font-size: 24px !important;
           }
+          .deep-dive-section {
+            padding: 60px 16px !important;
+          }
           .deep-dive-container {
             flex-direction: column !important;
             gap: 32px !important;
+          }
+          .deep-dive-container > div {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+          }
+          .cta-section {
+            padding: 80px 16px !important;
           }
           .cta-box {
             padding: 40px 20px !important;
@@ -323,6 +333,10 @@ export default function LandingPage() {
              height: auto !important;
              padding: 16px !important;
           }
+          .radar-box {
+            height: 320px !important;
+            width: 100% !important;
+          }
           .step-container {
             padding: 24px 16px !important;
             border-left: none !important;
@@ -359,7 +373,7 @@ export default function LandingPage() {
         justifyContent: 'space-between',
         transition: 'all 0.3s ease'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+        <div className="nav-brand-container" style={{ display: 'flex', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
             <div style={{
               width: '40px', height: '40px', borderRadius: '12px',
@@ -802,7 +816,7 @@ export default function LandingPage() {
       </section>
 
       {/* Deep Dive Section: The Journal */}
-      <section style={{ 
+      <section className="deep-dive-section" style={{ 
         padding: '100px 24px', 
         background: 'var(--bg-panel)',
         borderTop: '1px solid var(--border)',
@@ -830,7 +844,7 @@ export default function LandingPage() {
              </ul>
            </div>
            <div style={{ flex: '1 1 500px', position: 'relative' }}>
-             <div style={{ 
+             <div className="radar-box" style={{ 
                width: '100%', height: '400px', background: 'var(--bg-card)', 
                borderRadius: '24px', border: '1px solid var(--border)',
                boxShadow: 'var(--shadow-md)',
@@ -857,7 +871,7 @@ export default function LandingPage() {
       </section>
 
       {/* Beautiful CTA */}
-      <section style={{ padding: '120px 24px', textAlign: 'center' }}>
+      <section className="cta-section" style={{ padding: '120px 24px', textAlign: 'center' }}>
         <div className="cta-box" style={{
           background: 'linear-gradient(135deg, #1e3a8a, #3b82f6)',
           borderRadius: '32px',
