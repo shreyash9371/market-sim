@@ -66,6 +66,7 @@ export default function Dashboard() {
   const auth = useAuthStore()
   const navigate = useNavigate()
   const [loggingOut, setLoggingOut] = useState(false)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
   const meta = auth.user?.user_metadata || {}
   const firstName = meta.first_name || meta.given_name || meta.full_name?.split(' ')[0] || meta.name?.split(' ')[0] || 'Trader'
@@ -82,9 +83,102 @@ export default function Dashboard() {
       background: 'var(--bg-base)',
       fontFamily: 'var(--font-sans)',
     }}>
+      <style>{`
+        .mobile-menu-btn, .mobile-close-btn, .mobile-overlay {
+          display: none;
+        }
+        @media (max-width: 768px) {
+          .dash-nav {
+            padding: 16px !important;
+            height: auto !important;
+          }
+          .dash-nav-header {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+          .mobile-menu-btn {
+            display: block;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            padding: 4px;
+          }
+          .mobile-close-btn {
+            display: block;
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 28px;
+            position: absolute;
+            top: 16px;
+            right: 20px;
+          }
+          .dash-nav-actions {
+            position: fixed !important;
+            top: 0;
+            right: -280px;
+            width: 250px;
+            height: 100vh;
+            background: var(--bg-card);
+            box-shadow: -4px 0 24px rgba(0,0,0,0.15);
+            flex-direction: column !important;
+            align-items: flex-start !important;
+            padding: 80px 24px 24px !important;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1000;
+          }
+          .dash-nav-actions.mobile-open {
+            right: 0;
+          }
+          .mobile-overlay {
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: transparent;
+            z-index: 999;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+          }
+          .mobile-overlay.mobile-open {
+            opacity: 1;
+            pointer-events: auto;
+          }
+          .dash-nav-actions > *, .dash-nav-actions > button, .dash-nav-actions > div {
+            width: 100% !important;
+            border-radius: 4px !important;
+            justify-content: flex-start !important;
+            padding: 12px 16px !important;
+            margin-bottom: 8px;
+          }
+          .dash-nav-actions .mobile-close-btn {
+            width: auto !important;
+            justify-content: flex-end !important;
+            margin-bottom: 24px;
+            padding: 4px !important;
+          }
+          .dash-container {
+            padding: 24px 16px !important;
+          }
+          .dash-title {
+            font-size: 26px !important;
+            line-height: 1.2 !important;
+          }
+        }
+      `}</style>
+
+      {/* Overlay */}
+      <div className={`mobile-overlay ${isMobileMenuOpen ? 'mobile-open' : ''}`} onClick={() => setIsMobileMenuOpen(false)}></div>
 
       {/* Navbar */}
-      <nav style={{
+      <nav className="dash-nav" style={{
         position: 'sticky', top: 0, zIndex: 100,
         background: 'rgba(255,255,255,0.90)',
         backdropFilter: 'blur(12px)',
@@ -94,33 +188,25 @@ export default function Dashboard() {
         display: 'flex', alignItems: 'center',
         justifyContent: 'space-between',
       }}>
-        <span style={{
-          fontSize: '22px', fontWeight: 800,
-          color: 'var(--accent-blue)', letterSpacing: '-0.5px',
-        }}>
-          MktSim
-        </span>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {/* Tour Button */}
-          <button
-            onClick={() => startTourManually('/dashboard')}
-            title="How to use MktSim"
-            style={{
-              background: 'rgba(59,130,246,0.08)',
-              border: '1px solid rgba(59,130,246,0.2)',
-              color: '#3b82f6',
-              padding: '8px 14px', borderRadius: '10px',
-              fontSize: '13px', fontWeight: 700,
-              cursor: 'pointer', transition: 'all 0.2s',
-              display: 'flex', alignItems: 'center', gap: '6px',
-              fontFamily: 'var(--font-sans)',
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.14)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.transform = 'none' }}
-          >
-            <span style={{ fontSize: '16px' }}>💡</span> How it works
+        <div className="dash-nav-header">
+          <span style={{
+            fontSize: '22px', fontWeight: 800,
+            color: 'var(--accent-blue)', letterSpacing: '-0.5px',
+          }}>
+            MktSim
+          </span>
+          <button className="mobile-menu-btn" onClick={() => setIsMobileMenuOpen(true)}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="12" x2="21" y2="12"></line>
+              <line x1="3" y1="6" x2="21" y2="6"></line>
+              <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
           </button>
+        </div>
+
+        <div className={`dash-nav-actions ${isMobileMenuOpen ? 'mobile-open' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button className="mobile-close-btn" onClick={() => setIsMobileMenuOpen(false)}>×</button>
+          
           {/* User pill */}
           <div id="tour-navbar-user" style={{
             display: 'flex', alignItems: 'center', gap: '10px',
@@ -145,6 +231,26 @@ export default function Dashboard() {
               {firstName}
             </span>
           </div>
+
+          {/* Tour Button */}
+          <button
+            onClick={() => startTourManually('/dashboard')}
+            title="How to use MktSim"
+            style={{
+              background: 'rgba(59,130,246,0.08)',
+              border: '1px solid rgba(59,130,246,0.2)',
+              color: '#3b82f6',
+              padding: '8px 14px', borderRadius: '10px',
+              fontSize: '13px', fontWeight: 700,
+              cursor: 'pointer', transition: 'all 0.2s',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              fontFamily: 'var(--font-sans)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.14)'; e.currentTarget.style.transform = 'translateY(-1px)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.08)'; e.currentTarget.style.transform = 'none' }}
+          >
+            <span style={{ fontSize: '16px' }}>💡</span> How it works
+          </button>
 
           {/* Logout */}
           <button
@@ -174,7 +280,7 @@ export default function Dashboard() {
       </nav>
 
       {/* Page content */}
-      <div style={{
+      <div className="dash-container" style={{
         maxWidth: '1200px',
         margin: '0 auto',
         padding: '48px 40px',
@@ -182,7 +288,7 @@ export default function Dashboard() {
 
         {/* Welcome */}
         <div style={{ marginBottom: '40px' }}>
-          <h1 style={{
+          <h1 className="dash-title" style={{
             fontSize: '32px', fontWeight: 800,
             color: 'var(--text-primary)',
             letterSpacing: '-1px', marginBottom: '8px',

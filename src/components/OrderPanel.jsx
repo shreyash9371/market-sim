@@ -13,11 +13,14 @@ export default function OrderPanel({ open, orders, executionCount, selectedOrder
       borderRadius: 'var(--radius)',
       boxShadow: 'var(--shadow-md)',
       zIndex: 100,
-      transform: open ? 'translateX(0)' : 'translateX(-120%)',
+      transform: open ? 'translateX(0)' : 'translateX(-100%)',
       transition: 'transform 0.4s cubic-bezier(0.4,0,0.2,1)',
       display: 'flex',
       flexDirection: 'column',
       overflow: 'hidden',
+      visibility: open ? 'visible' : 'hidden',
+      pointerEvents: open ? 'auto' : 'none',
+      touchAction: 'none',
     }}>
 
       {/* Header */}

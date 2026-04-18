@@ -2,6 +2,17 @@ import { useEffect, useState } from 'react'
 import { useAuthStore } from '../store/useAuthStore'
 import { Navigate } from 'react-router-dom'
 import { supabase } from '../utils/supabase'
+import MobileGate from './MobileGate'
+
+function isMobileDevice() {
+  const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
+  const isNarrow = window.innerWidth < 1024
+  // If the user has switched to "Desktop Site" in Chrome/Safari mobile,
+  // the UA no longer contains "Mobile" / "iPhone" — treat them as desktop.
+  const ua = navigator.userAgent
+  const isMobileUA = /Android.*Mobile|iPhone|iPod/i.test(ua)
+  return hasTouch && isNarrow && isMobileUA
+}
 
 export default function ProtectedRoute({ children }) {
   const auth = useAuthStore()
@@ -85,6 +96,10 @@ export default function ProtectedRoute({ children }) {
 
   if (!approved) {
     return <Navigate to="/pending" replace />
+  }
+
+  if (isMobileDevice()) {
+    return <MobileGate />
   }
 
   return children

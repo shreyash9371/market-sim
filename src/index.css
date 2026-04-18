@@ -49,10 +49,14 @@ body {
   color: var(--text-primary);
   font-family: var(--font-sans);
   transition: background 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+  touch-action: pan-y;
+  overscroll-behavior-x: none;
 }
 
 #root {
   min-height: 100%;
+  overflow-x: hidden;
 }
 
 .simulator-root {
