@@ -652,7 +652,7 @@ export default function LandingPage() {
           >
             <div style={{ display: 'flex', flexDirection: 'column', height: '100%', position: 'relative', zIndex: 10 }}>
               <div style={{ fontSize: '48px', marginBottom: '24px' }}>🤖</div>
-              <h3 className="ai-spotlight-title" style={{ fontSize: '32px', fontWeight: 800, marginBottom: '16px' }}>AI Trade Coach & Strategy Enhancement</h3>
+              <h3 className="ai-spotlight-title" style={{ fontSize: '32px', fontWeight: 800, marginBottom: '16px' }}>AI Trading Coach & Performance Specialist</h3>
               <p style={{ fontSize: '18px', color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, maxWidth: '600px' }}>
                 Your personal AI hedge fund manager. As you trade, our intelligence framework analyzes your execution patterns, detects behavioral flaws (like revenge trading), and quantitatively enhances your setups for maximum expectancy.
               </p>

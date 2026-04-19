@@ -190,7 +190,7 @@ function runTourForPath(path, force = false) {
         },
         {
           element: '#tour-journal-ai',
-          popover: { title: 'AI Strategy Enhancement', description: 'Talk to an AI that already knows your exact P&L, pairs, and execution flaws.', side: "right", align: 'start' }
+          popover: { title: 'AI Trading Coach', description: 'Talk to an AI that already knows your exact P&L, pairs, and execution flaws.', side: "right", align: 'start' }
         },
         {
           element: '#tour-journal-images',

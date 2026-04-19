@@ -572,17 +572,17 @@ export default function JournalDashboard() {
   const [lastLoggedTrade, setLastLoggedTrade] = useState(null)
 
   useEffect(() => {
-    if (activeTab === 'Strategy Enhancement') {
+    if (activeTab === 'AI Trading Coach') {
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
   }, [chatMessages, isChatLoading, activeTab])
 
-  async function handleSendChat() {
-    if (!chatInput.trim()) return
-    const userMsg = { role: 'user', content: chatInput }
+   async function handleSendChat(overrideInput) {
+    const textToSubmit = (overrideInput || chatInput).trim()
+    if (!textToSubmit) return
+    const userMsg = { role: 'user', content: textToSubmit }
     setChatMessages(prev => [...prev, userMsg])
-    const currentInput = chatInput
-    setChatInput('')
+    if (!overrideInput) setChatInput('')
     setIsChatLoading(true)
 
     try {
@@ -591,20 +591,34 @@ export default function JournalDashboard() {
         throw new Error('Please add a free VITE_GROQ_API_KEY to your .env file. Get one free at console.groq.com')
       }
 
-      const systemPrompt = `You are a smart, concise trading journal analyst. You are currently speaking with ${firstName}. You MUST address them by their name in your responses. You have access to the full trade history, including all details and attached images.
+      const consecutiveLosses = [...trades].reverse().slice(0, 3).filter(t => getTradeResult(t) === 'Loss').length;
+      const isStreak = consecutiveLosses >= 3;
+
+      const systemPrompt = `You are the Elite Trading Coach & Performance Psychologist for ${firstName}. You are an expert in CFDs, Futures, and passing Prop Firm challenges (FTMO, Topstep, Apex, E8, etc.).
+
+COACHING PERSONALITY:
+- You are supportive but rigorous. You prioritize discipline over profit.
+- If the user is on a loss streak, you enter "FIRM LECTURE MODE". Be stern about risk management, cutting losses, and stopping for the day.
+- You speak like a high-level mentor. Use terms like "mental capital", "equity curve preservation", "institutional order flow", and "A+ setups".
+
+DOMAIN KNOWLEDGE:
+- PROP FIRMS: Focus on major, genuine firms. Remind users of 5% daily drawdown limits, 10% max drawdown, and the importance of consistency for payouts.
+- CFDs: Warn about spread expansion, overnight swap costs, and excessive leverage (>1:30).
+- FUTURES: Use tick values ($10/tick for ES, $5/tick for NQ). Emphasize volume and centralized exchange transparency.
+
+LECTURE STATUS: ${isStreak ? "ACTIVE. The user has lost 3+ trades in a row. You MUST start your response with a serious lecture about discipline and stopping for the day to protect their capital." : "NORMAL. Provide helpful analysis and answer questions."}
 
 STRICT RULES:
-- Be brief. No long paragraphs.
-- For queries about SESSIONS, PAIRS, DAYS, or anything involving win rates / breakdowns: respond ONLY with a JSON block in this exact format and nothing else:
+- Address ${firstName} by name.
+- Be concise. No fluff.
+- For break-downs (SESSIONS, PAIRS, etc.): respond ONLY with a JSON block:
 :::SESSION_BARS
 {"title": "...", "summary": "...", "bars": [{"label": "New York", "wins": 1, "losses": 2, "total": 3, "wr": 33.3}]}
 :::
-- For queries about specific trades (e.g., '>3RR', 'biggest loss'): use a clean markdown table. Columns: Date | Pair | Dir | Entry | Exit | P&L ($) | RR
-- Use the pre-calculated 'pnl_usd' and 'rr' values from the trade data. Do NOT recalculate them.
-- NEVER show internal UUIDs or 'id' fields.
-- If no trades match, say so in one sentence (or put it in the JSON 'summary').
+- For specific trade lists: use a Markdown table (Date | Pair | Dir | P&L ($) | RR).
+- Use 'pnl_usd' and 'rr' from the provided data. Do NOT recalculate.
 
-Trade data (pre-calculated values are already correct, do NOT recalculate them yourself):
+Trade data (Recent 100 trades):
 ${JSON.stringify(trades.slice(-100).map(t => {
   const pnl = calcPnl(t)
   const rr = calcRR(t)
@@ -614,9 +628,9 @@ ${JSON.stringify(trades.slice(-100).map(t => {
     lots: t.lots, pipval: t.pipval, commissions: t.commissions,
     pnl_usd: pnl ? pnl.usd : 'open',
     rr: parseFloat(rr.toFixed(2)),
-    emotion: t.emotion ? t.emotion.substring(0, 100) : '',
+    result: getTradeResult(t),
     notes: t.notes ? t.notes.substring(0, 100) : '',
-    strategy: t.strategy, images_attached: (t.images && t.images.length > 0) ? `${t.images.length} image(s)` : 'None',
+    strategy: t.strategy,
   }
 }), null, 2)}`
 
@@ -771,8 +785,17 @@ ${JSON.stringify(trades.slice(-100).map(t => {
       if (result === 'Win') {
         console.info("Matched 'Win' result, triggering celebration...");
         triggerCelebration()
-      } else {
-        console.info("Trade result was not 'Win' (was: " + result + "), no celebration.");
+      } else if (result === 'Loss') {
+        // Detect streak
+        const recentTrades = [...trades, savedData].reverse().slice(0, 3)
+        const lossStreak = recentTrades.filter(t => getTradeResult(t) === 'Loss').length >= 3
+        if (lossStreak) {
+          // Switch to AI tab and trigger lecture
+          setActiveTab('AI Trading Coach')
+          setTimeout(() => {
+            handleSendChat("I just took another loss. Analyze my performance and give me a lecture on discipline.")
+          }, 800)
+        }
       }
     }
   }
@@ -1050,7 +1073,7 @@ ${JSON.stringify(trades.slice(-100).map(t => {
                 <SidebarItem label="Trading Statistics" active={activeTab === 'Trading Statistics' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Trading Statistics'); setSelectedTradeDetail(null); setShowModal(false); }} />
               </div>
               <div id="tour-journal-ai">
-                <SidebarItem label="Strategy Enhancement" active={activeTab === 'Strategy Enhancement' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Strategy Enhancement'); setSelectedTradeDetail(null); setShowModal(false); }} />
+                <SidebarItem label="AI Trading Coach" active={activeTab === 'AI Trading Coach' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('AI Trading Coach'); setSelectedTradeDetail(null); setShowModal(false); }} />
               </div>
               <div id="tour-journal-history">
                 <SidebarItem label="Trading History" active={activeTab === 'Trading History' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Trading History'); setSelectedTradeDetail(null); setShowModal(false); }} />
@@ -1659,7 +1682,7 @@ ${JSON.stringify(trades.slice(-100).map(t => {
               <TradingStatistics trades={trades} tod={tod} firstName={firstName} onTradeClick={(t) => setSelectedTradeDetail(t)} />
             )}
 
-            {activeTab === 'Strategy Enhancement' && (
+            {activeTab === 'AI Trading Coach' && (
               <div style={{
                 position: 'fixed',
                 top: '90px',
