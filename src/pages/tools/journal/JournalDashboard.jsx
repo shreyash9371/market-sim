@@ -698,7 +698,28 @@ ${JSON.stringify(trades.slice(-100).map(t => {
       })
       setEditingTradeId(trade.id)
     } else {
-      setForm({ ...emptyForm, date: today() })
+      const lastTrade = trades.length > 0 ? trades[trades.length - 1] : null
+      if (lastTrade) {
+        setForm({
+          ...emptyForm,
+          pair: lastTrade.pair,
+          dir: lastTrade.dir,
+          session: lastTrade.session || '',
+          entry: lastTrade.entry.toString(),
+          exit: lastTrade.exit ? lastTrade.exit.toString() : '',
+          sl: lastTrade.sl.toString(),
+          tp: lastTrade.tp.toString(),
+          date: lastTrade.date,
+          exit_date: lastTrade.exit_date || '',
+          entryTime: lastTrade.entryTime || '',
+          exitTime: lastTrade.exitTime || '',
+          lots: lastTrade.lots.toString(),
+          pipval: lastTrade.pipval.toString(),
+          commissions: lastTrade.commissions ? lastTrade.commissions.toString() : '',
+        })
+      } else {
+        setForm({ ...emptyForm, date: today() })
+      }
       setEditingTradeId(null)
     }
     setShowModal(true)
@@ -979,7 +1000,7 @@ ${JSON.stringify(trades.slice(-100).map(t => {
 
   // ── RENDER ──────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg-base)', fontFamily: 'var(--font-sans)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-base)', fontFamily: 'var(--font-sans)', paddingTop: '64px' }}>
 
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -987,7 +1008,7 @@ ${JSON.stringify(trades.slice(-100).map(t => {
       `}</style>
       {/* ── NAVBAR (matches Dashboard exactly) ── */}
       <nav style={{
-        position: 'sticky', top: 0, zIndex: 100,
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         background: 'var(--bg-panel-alpha)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid var(--border)',

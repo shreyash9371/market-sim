@@ -84,6 +84,7 @@ export default function LandingPage() {
       fontFamily: 'var(--font-sans)',
       overflowX: 'hidden',
       position: 'relative',
+      paddingTop: '80px',
     }}>
       <style>{`
         @keyframes fadeUp {
@@ -366,7 +367,7 @@ export default function LandingPage() {
 
       {/* Navbar */}
       <nav className="glass-nav" style={{
-        position: 'sticky', top: 0, zIndex: 100,
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         padding: '0 40px',
         height: '80px',
         display: 'flex', alignItems: 'center',

@@ -82,6 +82,7 @@ export default function Dashboard() {
       minHeight: '100vh',
       background: 'var(--bg-base)',
       fontFamily: 'var(--font-sans)',
+      paddingTop: '64px',
     }}>
       <style>{`
         .mobile-menu-btn, .mobile-close-btn, .mobile-overlay {
@@ -179,7 +180,7 @@ export default function Dashboard() {
 
       {/* Navbar */}
       <nav className="dash-nav" style={{
-        position: 'sticky', top: 0, zIndex: 100,
+        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         background: 'rgba(255,255,255,0.90)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid var(--border)',
