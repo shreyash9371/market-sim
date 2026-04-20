@@ -7,6 +7,7 @@ import AuthConfirm from './pages/AuthConfirm'
 import PendingApproval from './pages/PendingApproval'
 import ProtectedRoute from './components/ProtectedRoute'
 import { useProductTour } from './components/ProductTourManager'
+import OnboardingSurvey from './components/OnboardingSurvey'
 import './index.css'
 
 function TourWrapper() {
@@ -18,6 +19,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <TourWrapper />
+      <OnboardingSurvey />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/auth/confirm" element={<AuthConfirm />} />
