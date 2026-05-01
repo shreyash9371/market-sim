@@ -57,7 +57,7 @@ export function startLogTradeTour(force = false) {
 export function startSimulatorTour(isRealMarket, force = false) {
   const tourId = `tour_simulator_${isRealMarket ? 'real' : 'manual'}_v1`;
   if (localStorage.getItem(tourId) && !force) return;
-  
+
   setTimeout(() => {
     if (isRealMarket) {
       if (!document.querySelector('#tour-start-price')) return;
@@ -139,7 +139,7 @@ function runTourForPath(path, force = false) {
 
   if (path === '/dashboard') {
     if (localStorage.getItem('tour_dashboard_v1') && !force) return;
-    
+
     // Only run if the element actually exists
     if (!document.querySelector('#tour-simulator-card')) return;
 
@@ -170,7 +170,7 @@ function runTourForPath(path, force = false) {
 
   if (path === '/tools/journal') {
     if (localStorage.getItem('tour_journal_v1') && !force) return;
-    
+
     if (!document.querySelector('#tour-new-trade')) return;
 
     const d = driver({

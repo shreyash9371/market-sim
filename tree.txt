@@ -1,0 +1,105 @@
+src/
+|-- App.css (0 lines)
+|-- App.jsx (15 lines)
+|-- assets/
+|-- components/
+|   |-- AuthPanel.jsx (187 lines)
+|   |-- BidAskTable.jsx (337 lines)
+|   |-- MobileGate.jsx (175 lines)
+|   |-- OrderPanel.jsx (231 lines)
+|   |-- PriceChart.jsx (272 lines)
+|   |-- ProtectedRoute.jsx (26 lines)
+|   |-- TopBar.jsx (481 lines)
+|   |-- auth/
+|   |   |-- ForgotForm.jsx (43 lines)
+|   |   |-- LoginForm.jsx (68 lines)
+|   |   |-- SignupForm.jsx (96 lines)
+|   |   -- VerifyEmail.jsx (45 lines)
+|   |-- chart/
+|   |   |-- ChartToolbar.jsx (144 lines)
+|   |   |-- chartUtils.js (65 lines)
+|   |   |-- drawMain.js (400 lines)
+|   |   -- drawOverlay.js (87 lines)
+|   -- ui/
+|       |-- BaseComponents.jsx (90 lines)
+|       |-- FormComponents.jsx (284 lines)
+|       |-- Loader.jsx (33 lines)
+|       -- SidebarItem.jsx (24 lines)
+|-- index.css (140 lines)
+|-- main.jsx (10 lines)
+|-- pages/
+|   |-- AuthConfirm.jsx (72 lines)
+|   |-- Dashboard.jsx (418 lines)
+|   |-- LandingPage.jsx (156 lines)
+|   |-- PendingApproval.jsx (265 lines)
+|   |-- landing/
+|   |   -- components/
+|   |       |-- CTASection.jsx (41 lines)
+|   |       |-- DeepDive.jsx (57 lines)
+|   |       |-- FeatureGrid.jsx (88 lines)
+|   |       |-- Footer.jsx (22 lines)
+|   |       |-- HeroSection.jsx (87 lines)
+|   |       |-- HowItWorks.jsx (118 lines)
+|   |       |-- LandingStyles.jsx (266 lines)
+|   |       |-- MockupVisuals.jsx (65 lines)
+|   |       -- NavBar.jsx (107 lines)
+|   -- tools/
+|       |-- BasicSimulator.jsx (192 lines)
+|       -- journal/
+|           |-- JournalDashboard.jsx (397 lines)
+|           |-- LogTradeView.jsx (261 lines)
+|           |-- TradeDetailsView.jsx (335 lines)
+|           |-- TradingStatistics.jsx (117 lines)
+|           |-- ai/
+|           |   -- handleSendChat.js (0 lines)
+|           |-- components/
+|           |   |-- AICoachTab.jsx (135 lines)
+|           |   |-- DashboardVisuals.jsx (260 lines)
+|           |   |-- JournalModals.jsx (169 lines)
+|           |   |-- JournalSidebar.jsx (70 lines)
+|           |   |-- PositionQuickFill.jsx (118 lines)
+|           |   |-- TradeGalleryTab.jsx (103 lines)
+|           |   |-- TradeHistoryTab.jsx (152 lines)
+|           |   |-- TradingViewAdvancedChart.jsx (43 lines)
+|           |   -- statistics/
+|           |       |-- StatCalendarAndHistory.jsx (231 lines)
+|           |       |-- StatUIComponents.jsx (184 lines)
+|           |       |-- StatVisuals.jsx (235 lines)
+|           |       |-- TopMetricsRow.jsx (190 lines)
+|           |       -- TraderScoreModal.jsx (68 lines)
+|           |-- constants.js (34 lines)
+|           -- hooks/
+|               |-- statistics/
+|               |   -- useTradingStatistics.js (220 lines)
+|               |-- useJournalChat.js (119 lines)
+|               |-- useJournalData.js (37 lines)
+|               |-- useJournalStats.js (70 lines)
+|               -- useJournalSummary.js (33 lines)
+|-- routes/
+|   -- AppRoutes.jsx (24 lines)
+|-- store/
+|   |-- auth/
+|   |   |-- authActions.js (144 lines)
+|   |   |-- authInit.js (113 lines)
+|   |   |-- authListeners.js (5 lines)
+|   |   |-- authState.js (20 lines)
+|   |   -- useAuthStore.js (71 lines)
+|   |-- market/
+|   |   |-- executeOrder.js (117 lines)
+|   |   |-- marketActions.js (144 lines)
+|   |   |-- marketConditions.js (178 lines)
+|   |   |-- marketState.js (65 lines)
+|   |   |-- orderExecution.js (181 lines)
+|   |   -- tickLogic.js (258 lines)
+|   -- useMarketStore.js (51 lines)
+|-- system/
+|   |-- OnboardingSurvey.jsx (355 lines)
+|   |-- ProductTourManager.jsx (211 lines)
+|   -- TourWrapper.jsx (6 lines)
+-- utils/
+    |-- celebration.js (41 lines)
+    |-- device.js (8 lines)
+    |-- generators.js (69 lines)
+    |-- guestData.js (58 lines)
+    |-- supabase.js (6 lines)
+    -- tradeMetrics.js (91 lines)

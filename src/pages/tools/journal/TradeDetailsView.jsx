@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { calcPnl, calcRR, getTradeResult } from '../../../utils/tradeMetrics';
-import { TradingViewAdvancedChart } from './LogTradeView';
+import { TradingViewAdvancedChart } from "./components/TradingViewAdvancedChart";
 
 function Badge({ children, variant = 'neutral' }) {
   const bg = variant === 'green' ? 'rgba(16,185,129,0.12)' : variant === 'red' ? 'rgba(239,68,68,0.12)' : 'var(--bg-base)';

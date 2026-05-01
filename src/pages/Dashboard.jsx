@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore } from '../store/useAuthStore'
-import { startTourManually } from '../components/ProductTourManager'
+import { useAuthStore } from '../store/auth/useAuthStore'
+import { startTourManually } from '../system/ProductTourManager'
 
 const TOOLS = [
   {
@@ -207,7 +207,7 @@ export default function Dashboard() {
 
         <div className={`dash-nav-actions ${isMobileMenuOpen ? 'mobile-open' : ''}`} style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <button className="mobile-close-btn" onClick={() => setIsMobileMenuOpen(false)}>×</button>
-          
+
           {/* User pill */}
           <div id="tour-navbar-user" style={{
             display: 'flex', alignItems: 'center', gap: '10px',

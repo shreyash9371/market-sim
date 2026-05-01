@@ -1,12 +1,12 @@
 import { useNavigate } from 'react-router-dom'
-import { useAuthStore } from '../../store/useAuthStore'
+import { useAuthStore } from '../../store/auth/useAuthStore'
 import { useMarketStore } from '../../store/useMarketStore'
 import TopBar from '../../components/TopBar'
 import OrderPanel from '../../components/OrderPanel'
 import PriceChart from '../../components/PriceChart'
 import BidAskTable from '../../components/BidAskTable'
 import { useState, useEffect } from 'react'
-import { startSimulatorTour } from '../../components/ProductTourManager'
+import { startSimulatorTour } from '../../system/ProductTourManager'
 
 export default function BasicSimulator() {
   const [panelOpen, setPanelOpen] = useState(false)

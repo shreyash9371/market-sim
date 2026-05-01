@@ -1,96 +1,17 @@
-import { useEffect, useState } from 'react'
-import { useAuthStore } from '../store/useAuthStore'
-import { Navigate } from 'react-router-dom'
-import { supabase } from '../utils/supabase'
 import MobileGate from './MobileGate'
+import { Navigate, Outlet } from 'react-router-dom'
+import { isMobileDevice } from '../utils/device'
+import Loader from './ui/Loader'
+import { useAuthStore } from '../store/auth/useAuthStore'
 
-function isMobileDevice() {
-  const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0
-  const isNarrow = window.innerWidth < 1024
-  // If the user has switched to "Desktop Site" in Chrome/Safari mobile,
-  // the UA no longer contains "Mobile" / "iPhone" — treat them as desktop.
-  const ua = navigator.userAgent
-  const isMobileUA = /Android.*Mobile|iPhone|iPod/i.test(ua)
-  return hasTouch && isNarrow && isMobileUA
-}
+export default function ProtectedRoute() {
+  const { user, loading, approved } = useAuthStore()
 
-export default function ProtectedRoute({ children }) {
-  const auth = useAuthStore()
-  const [checking, setChecking] = useState(true)
-  const [approved, setApproved] = useState(false)
-  const [hasUser, setHasUser] = useState(false)
-
-  useEffect(() => {
-    async function check() {
-      const guestSession = sessionStorage.getItem('guest_mode') === 'true'
-      if (guestSession) {
-        setHasUser(true)
-        setApproved(true)
-        setChecking(false)
-        return
-      }
-
-      const { data } = await supabase.auth.getSession()
-      const user = data.session?.user ?? null
-
-      if (!user) {
-        setChecking(false)
-        return
-      }
-
-      setHasUser(true)
-
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('approved')
-          .eq('id', user.id)
-          .single()
-
-        setApproved(true)  // TEMP: hardcode true to bypass gate
-      } catch (e) {
-        setApproved(true)  // TEMP: default true while free
-      }
-
-      setChecking(false)
-    }
-
-    check()
-  }, [])
-
-  if (checking) {
-    return (
-      <div style={{
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--bg-base)',
-        flexDirection: 'column',
-        gap: '16px',
-      }}>
-        <div style={{
-          width: '40px', height: '40px',
-          border: '3px solid var(--border)',
-          borderTop: '3px solid var(--accent-blue)',
-          borderRadius: '50%',
-          animation: 'spin 0.8s linear infinite',
-        }} />
-        <span style={{
-          fontSize: '14px',
-          color: 'var(--text-dim)',
-          fontFamily: 'var(--font-sans)',
-        }}>
-          Loading...
-        </span>
-        <style>{`
-          @keyframes spin { to { transform: rotate(360deg); } }
-        `}</style>
-      </div>
-    )
+  if (loading) {
+    return <Loader />
   }
 
-  if (!hasUser) {
+  if (!user) {
     return <Navigate to="/" replace />
   }
 
@@ -101,6 +22,5 @@ export default function ProtectedRoute({ children }) {
   if (isMobileDevice()) {
     return <MobileGate />
   }
-
-  return children
+  return <Outlet />
 }
