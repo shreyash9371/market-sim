@@ -147,64 +147,189 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
       }
       reader.readAsText(file)
     } else {
+      // Read raw (no header) so we can handle MT5's multi-section report format
       Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
+        header: false,
+        skipEmptyLines: false,
         complete: (results) => {
-          if (results.errors.length > 0 && results.data.length === 0) {
-            return setError('Failed to parse CSV. Make sure it is a valid MT5 export.')
+          const rows = results.data  // array of string arrays
+
+          // ── Helper: parse an MT5 datetime string ──────────────────
+          const parseDateTime = (raw = '') => {
+            if (!raw) return { dateStr: new Date().toISOString().split('T')[0], timeStr: '12:00' }
+            // MT5 format: "2026.04.28 16:00:00" — replace dots in date part only
+            const cleaned = raw.trim().replace(/^(\d{4})\.(\d{2})\.(\d{2})/, '$1-$2-$3')
+            const d = new Date(cleaned)
+            if (isNaN(d.getTime())) return { dateStr: new Date().toISOString().split('T')[0], timeStr: '12:00' }
+            return {
+              dateStr: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
+              timeStr: `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+            }
           }
 
-          const data = results.data
-          const normalizedTrades = data.map((row, index) => {
-            const rawTime = row['Time'] || row['Date'] || row['Open Time'] || ''
-            const typeStr = (row['Type'] || row['Direction'] || '').toLowerCase()
-            const isBuy = typeStr.includes('buy')
-            const isSell = typeStr.includes('sell')
-            
-            let dir = 'long'
-            if (isSell) dir = 'short'
-            if (!isBuy && !isSell) dir = '' 
+          // ── Helper: Clean numeric strings (remove spaces/commas) ──
+          const cleanNum = (val) => {
+            if (!val) return ''
+            return String(val).replace(/\s/g, '').replace(/,/g, '')
+          }
 
-            let dateStr = new Date().toISOString().split('T')[0]
-            let entryTimeStr = '12:00'
-            if (rawTime) {
-              const cleanTime = rawTime.replace(/\./g, '-')
-              const dObj = new Date(cleanTime)
-              if (!isNaN(dObj.getTime())) {
-                const y = dObj.getFullYear()
-                const m = String(dObj.getMonth() + 1).padStart(2, '0')
-                const d = String(dObj.getDate()).padStart(2, '0')
-                dateStr = `${y}-${m}-${d}`
-                const hh = String(dObj.getHours()).padStart(2, '0')
-                const mm = String(dObj.getMinutes()).padStart(2, '0')
-                entryTimeStr = `${hh}:${mm}`
+          // ── Try to find the "Positions" section ───────────────────
+          // MT5 Report CSV structure:
+          //   Row 0: "Trade History Report"
+          //   Rows 1-4: metadata
+          //   Row 5: blank
+          //   Row 6: "Positions"   ← section label (col A)
+          //   Row 7: column headers: Time, Position, Symbol, Type, Volume, Price, S/L, T/P, Time, Price, Commission, Swap, Profit
+          //   Rows 8+: trade data  (until blank or "Orders" / "Deals")
+
+          let posHeaderRowIdx = -1
+          for (let i = 0; i < rows.length; i++) {
+            const first = (rows[i][0] || '').trim().toLowerCase()
+            if (first === 'positions') {
+              posHeaderRowIdx = i + 1  // the next row is the column header row
+              break
+            }
+          }
+
+          let normalizedTrades = []
+
+          if (posHeaderRowIdx !== -1 && posHeaderRowIdx < rows.length) {
+            // Map column names from the Positions header row
+            const headers = rows[posHeaderRowIdx].map(h => (h || '').trim().toLowerCase())
+            // Headers: time, position, symbol, type, volume, price, s/l, t/p, time, price, commission, swap, profit
+            // There are two "time" and two "price" columns — find indices manually
+            const timeIndices    = headers.reduce((a, h, i) => h === 'time'    ? [...a, i] : a, [])
+            const priceIndices   = headers.reduce((a, h, i) => h === 'price'   ? [...a, i] : a, [])
+            const typeIdx        = headers.indexOf('type')
+            const symbolIdx      = headers.indexOf('symbol')
+            const positionIdx    = headers.indexOf('position')
+            const volumeIdx      = headers.indexOf('volume')
+            const slIdx          = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'sl')
+            const tpIdx          = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'tp')
+            const commissionIdx  = headers.indexOf('commission')
+            const swapIdx        = headers.indexOf('swap')
+            const profitIdx      = headers.lastIndexOf('profit')
+
+            const openTimeIdx   = timeIndices[0]  ?? -1
+            const closeTimeIdx  = timeIndices[1]  ?? -1
+            const entryPriceIdx = priceIndices[0] ?? -1
+            const exitPriceIdx  = priceIndices[1] ?? -1
+
+            const STOP_LABELS = ['orders', 'deals', 'balance']
+
+            for (let i = posHeaderRowIdx + 1; i < rows.length; i++) {
+              const row = rows[i]
+              const firstCell = (row[0] || '').trim().toLowerCase()
+              if (STOP_LABELS.includes(firstCell)) break
+              if (row.every(c => !c || !c.trim())) continue
+
+              const typeStr = typeIdx !== -1 ? (row[typeIdx] || '').trim().toLowerCase() : ''
+              const isBuy  = typeStr === 'buy'  || typeStr === 'buy stop'  || typeStr === 'buy limit'
+              const isSell = typeStr === 'sell' || typeStr === 'sell stop' || typeStr === 'sell limit'
+              if (!isBuy && !isSell) continue
+
+              const { dateStr: openDate, timeStr: openTime }   = parseDateTime(openTimeIdx  !== -1 ? row[openTimeIdx]  : '')
+              const { dateStr: closeDate, timeStr: closeTime } = parseDateTime(closeTimeIdx !== -1 ? row[closeTimeIdx] : '')
+              const commission   = parseFloat(cleanNum(row[commissionIdx]) || 0)
+              const swap         = parseFloat(cleanNum(row[swapIdx])       || 0)
+              const rawProfit    = profitIdx !== -1 ? cleanNum(row[profitIdx]) : ''
+              const pnl_override = rawProfit !== '' ? parseFloat(rawProfit) : undefined
+
+              normalizedTrades.push({
+                id:          positionIdx !== -1 ? (row[positionIdx] || `CSV-${Date.now()}-${i}`) : `CSV-${Date.now()}-${i}`,
+                date:        openDate,
+                entryTime:   openTime,
+                exit_date:   closeDate,
+                exitTime:    closeTime,
+                pair:        symbolIdx !== -1 ? (row[symbolIdx] || '').trim().toUpperCase() : '',
+                dir:         isBuy ? 'long' : 'short',
+                lots:        volumeIdx !== -1 ? (cleanNum(row[volumeIdx]) || '0') : '0',
+                entry:       entryPriceIdx !== -1 ? cleanNum(row[entryPriceIdx]) : '',
+                exit:        exitPriceIdx  !== -1 ? cleanNum(row[exitPriceIdx])  : '',
+                sl:          slIdx !== -1 ? cleanNum(row[slIdx]) : '',
+                tp:          tpIdx !== -1 ? cleanNum(row[tpIdx]) : '',
+                session:     'New York',
+                emotion:     'calm',
+                pipval:      1,
+                commissions: Math.abs(commission + swap),
+                pnl_override,
+                notes:       'Imported via CSV (Positions).',
+                images:      []
+              })
+            }
+          }
+
+          // ── Fallback: generic column-name scan (for plain MT5 CSVs) ──
+          if (normalizedTrades.length === 0) {
+            // Find the first row that looks like a header containing "type"
+            let headerIdx = -1
+            for (let i = 0; i < Math.min(rows.length, 20); i++) {
+              const hasType   = rows[i].some(c => (c||'').trim().toLowerCase() === 'type')
+              const hasSymbol = rows[i].some(c => (c||'').trim().toLowerCase() === 'symbol')
+              if (hasType && hasSymbol) { headerIdx = i; break }
+            }
+
+            if (headerIdx !== -1) {
+              const headers = rows[headerIdx].map(h => (h||'').trim().toLowerCase())
+              const SKIP_TYPES = ['balance','credit','deposit','withdrawal','correction','bonus']
+              const timeIndices  = headers.reduce((a, h, i) => h === 'time'  ? [...a, i] : a, [])
+              const priceIndices = headers.reduce((a, h, i) => h === 'price' ? [...a, i] : a, [])
+
+              for (let i = headerIdx + 1; i < rows.length; i++) {
+                const row = rows[i]
+                if (row.every(c => !c || !c.trim())) continue
+
+                const typeIdx = headers.findIndex(h => h === 'type')
+                const typeStr = typeIdx !== -1 ? (row[typeIdx]||'').trim().toLowerCase() : ''
+                if (SKIP_TYPES.includes(typeStr) || !typeStr) continue
+                const isBuy  = typeStr.includes('buy')
+                const isSell = typeStr.includes('sell')
+                if (!isBuy && !isSell) continue
+
+                const openTimeIdx   = timeIndices[0]  ?? -1
+                const closeTimeIdx  = timeIndices[1]  ?? -1
+                const entryPriceIdx = priceIndices[0] ?? -1
+                const exitPriceIdx  = priceIndices[1] ?? -1
+                const { dateStr: openDate, timeStr: openTime }   = parseDateTime(openTimeIdx  !== -1 ? row[openTimeIdx]  : '')
+                const { dateStr: closeDate, timeStr: closeTime } = parseDateTime(closeTimeIdx !== -1 ? row[closeTimeIdx] : '')
+                const symbolIdx     = headers.indexOf('symbol')
+                const positionIdx   = ['position','ticket','deal','order'].map(k => headers.indexOf(k)).find(x => x !== -1) ?? -1
+                const volumeIdx     = headers.findIndex(h => h === 'volume' || h === 'size' || h === 'lots')
+                const slIdx         = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'sl')
+                const tpIdx         = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'tp')
+                const commIdx       = headers.indexOf('commission')
+                const swapIdx       = headers.indexOf('swap')
+                const commission    = parseFloat(cleanNum(row[commIdx])  || 0)
+                const swap          = parseFloat(cleanNum(row[swapIdx])  || 0)
+
+                const profitIdxFb   = headers.lastIndexOf('profit')
+                const rawProfitFb   = profitIdxFb !== -1 ? cleanNum(row[profitIdxFb]) : ''
+                const pnl_override  = rawProfitFb !== '' ? parseFloat(rawProfitFb) : undefined
+
+                normalizedTrades.push({
+                  id:          positionIdx !== -1 ? (row[positionIdx] || `CSV-${Date.now()}-${i}`) : `CSV-${Date.now()}-${i}`,
+                  date:        openDate,
+                  entryTime:   openTime,
+                  exit_date:   closeDate,
+                  exitTime:    closeTime,
+                  pair:        symbolIdx !== -1 ? (row[symbolIdx]||'').trim().toUpperCase() : '',
+                  dir:         isBuy ? 'long' : 'short',
+                  lots:        volumeIdx !== -1 ? (cleanNum(row[volumeIdx])||'0') : '0',
+                  entry:       entryPriceIdx !== -1 ? cleanNum(row[entryPriceIdx]) : '',
+                  exit:       exitPriceIdx  !== -1 ? cleanNum(row[exitPriceIdx])  : '',
+                  sl:          slIdx !== -1 ? cleanNum(row[slIdx]) : '',
+                  tp:          tpIdx !== -1 ? cleanNum(row[tpIdx]) : '',
+                  session:     'New York',
+                  emotion:     'calm',
+                  pipval:      1,
+                  commissions: Math.abs(commission + swap),
+                  pnl_override,
+                  notes:       'Imported via CSV.',
+                  images:      []
+                })
               }
             }
-
-            const totalComms = Math.abs(parseFloat(row['Commission'] || 0) + parseFloat(row['Swap'] || 0))
-
-            return {
-              id: row['Ticket'] || row['Deal'] || row['Order'] || `CSV-${Date.now()}-${index}`,
-              date: dateStr,
-              entryTime: entryTimeStr,
-              exit_date: dateStr,
-              exitTime: '',
-              pair: (row['Symbol'] || row['Item'] || '').toUpperCase(),
-              dir: dir,
-              lots: row['Volume'] || row['Size'] || '',
-              entry: row['Price'] || row['Entry'] || '',
-              exit: '',
-              sl: row['S/L'] || row['SL'] || '',
-              tp: row['T/P'] || row['TP'] || '',
-              session: 'New York',
-              emotion: 'calm',
-              pipval: 1,
-              commissions: totalComms,
-              notes: `Imported via CSV.`,
-              images: []
-            }
-          }).filter(t => t.dir !== '') 
+          }
 
           if (normalizedTrades.length === 0) {
             setError('No valid trades (Buy/Sell) found in the CSV. Please check the file format.')
@@ -242,7 +367,11 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
 
   const saveEdit = () => {
     if (!editingTrade) return
-    setParsedTrades(prev => prev.map(t => t.id === editingTrade.id ? editingTrade : t))
+    // If the user manually edited prices/lots, we should clear the pnl_override
+    // so that the app recalculates P/L based on the new values.
+    const updatedTrade = { ...editingTrade }
+    delete updatedTrade.pnl_override
+    setParsedTrades(prev => prev.map(t => t.id === updatedTrade.id ? updatedTrade : t))
     setEditingTrade(null)
   }
 
@@ -270,6 +399,7 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
       lots: parseFloat(row.lots) || 0.1,
       pipval: parseFloat(row.pipval) || 1, 
       commissions: parseFloat(row.commissions) || 0,
+      pnl_override: row.pnl_override,
       notes: row.notes,
       images: row.images || [],
     }))
@@ -311,11 +441,10 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
 
   // Calculate RR helper (Planned RR based on TP/SL to match TradingHistoryTab)
   const calcRR = (t) => {
-    if (!t.entry || !t.sl || !t.tp) return '--'
     const entry = parseFloat(t.entry)
     const sl = parseFloat(t.sl)
     const tp = parseFloat(t.tp)
-    if (entry === sl) return '--'
+    if (isNaN(entry) || isNaN(sl) || isNaN(tp) || entry === sl) return '--'
     const risk = Math.abs(entry - sl)
     const reward = Math.abs(tp - entry)
     const rr = reward / risk
@@ -423,7 +552,8 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
                 {parsedTrades.map(t => {
                   const isSelected = selectedIds.has(t.id)
                   const isLong = t.dir === 'long'
-                  const pnlVal = calcPnl(t)?.usd || 0
+                  const pnlObj = calcPnl(t)
+                  const pnlVal = pnlObj ? pnlObj.usd : 0
                   const resultStr = getTradeResult(t)
                   
                   return (
@@ -472,11 +602,13 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
                         {t.entryTime || '--:--'} <span style={{ color: 'var(--text-dim)' }}>→</span> {t.exitTime || '--:--'}
                       </td>
                       <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)' }}>{t.lots}</td>
-                      <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--accent-red)', fontFamily: 'var(--font-sans)' }}>{t.commissions ? '-$' + Number(t.commissions).toFixed(2) : '--'}</td>
+                      <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--accent-red)', fontFamily: 'var(--font-sans)' }}>
+                        {(t.commissions !== undefined && t.commissions !== null) ? '-$' + Number(t.commissions).toFixed(2) : '--'}
+                      </td>
                       <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{calcRR(t)}R</td>
                       <td style={{ padding: '14px 20px', fontSize: '13px', color: 'var(--text-secondary)', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>{calcDuration(t)}</td>
                       <td style={{ padding: '14px 20px', fontSize: '14px', fontWeight: 600, textAlign: 'right', fontFamily: 'var(--font-sans)', color: pnlVal >= 0 ? 'var(--accent-green)' : 'var(--accent-red)' }}>
-                        {pnlVal === null ? 'Open' : `${pnlVal >= 0 ? '+' : ''}$${pnlVal.toFixed(2)}`}
+                        {pnlObj === null ? 'Open' : `${pnlVal >= 0 ? '+' : ''}$${pnlVal.toFixed(2)}`}
                       </td>
                       <td style={{ padding: '14px 20px', textAlign: 'right' }}>
                         <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
