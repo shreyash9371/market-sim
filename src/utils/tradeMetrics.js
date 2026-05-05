@@ -17,20 +17,6 @@ export function getPipMultiplier(pair) {
 }
 
 export function calcPnl(t) {
-  // Use MT5-provided profit directly if available (set by CSV/HTML importer)
-  if (t.pnl_override !== undefined && t.pnl_override !== null && t.pnl_override !== '') {
-    const usd = parseFloat(t.pnl_override) || 0
-    const diff = t.dir === 'long'
-      ? (parseFloat(t.exit) - parseFloat(t.entry))
-      : (parseFloat(t.entry) - parseFloat(t.exit))
-    const mult = getPipMultiplier(t.pair)
-    const pips = isNaN(diff) ? 0 : diff * mult
-    return {
-      pips: parseFloat(pips.toFixed(1)),
-      usd: parseFloat(usd.toFixed(2)),
-    }
-  }
-
   if (!t.exit) return null
   const size = t.pipval ? parseFloat(t.pipval) : getContractSize(t.pair)
   const diff = t.dir === 'long'

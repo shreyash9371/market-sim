@@ -5,11 +5,12 @@ import { Btn } from '../../../../components/ui/BaseComponents'
 import LogTradeView from '../LogTradeView'
 import { calcPnl, getTradeResult } from '../../../../utils/tradeMetrics'
 
-export default function MT5SyncTab({ trades, setTrades, auth }) {
+export default function MT5SyncTab({ trades, setTrades, auth, strategyId }) {
   const [parsedTrades, setParsedTrades] = useState([])
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [syncingToJournal, setSyncingToJournal] = useState(false)
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const fileInputRef = useRef(null)
 
   // Edit Mode State (uses LogTradeView format)
@@ -232,8 +233,6 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
               const { dateStr: closeDate, timeStr: closeTime } = parseDateTime(closeTimeIdx !== -1 ? row[closeTimeIdx] : '')
               const commission   = parseFloat(cleanNum(row[commissionIdx]) || 0)
               const swap         = parseFloat(cleanNum(row[swapIdx])       || 0)
-              const rawProfit    = profitIdx !== -1 ? cleanNum(row[profitIdx]) : ''
-              const pnl_override = rawProfit !== '' ? parseFloat(rawProfit) : undefined
 
               normalizedTrades.push({
                 id:          positionIdx !== -1 ? (row[positionIdx] || `CSV-${Date.now()}-${i}`) : `CSV-${Date.now()}-${i}`,
@@ -252,7 +251,6 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
                 emotion:     'calm',
                 pipval:      1,
                 commissions: Math.abs(commission + swap),
-                pnl_override,
                 notes:       'Imported via CSV (Positions).',
                 images:      []
               })
@@ -302,10 +300,6 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
                 const commission    = parseFloat(cleanNum(row[commIdx])  || 0)
                 const swap          = parseFloat(cleanNum(row[swapIdx])  || 0)
 
-                const profitIdxFb   = headers.lastIndexOf('profit')
-                const rawProfitFb   = profitIdxFb !== -1 ? cleanNum(row[profitIdxFb]) : ''
-                const pnl_override  = rawProfitFb !== '' ? parseFloat(rawProfitFb) : undefined
-
                 normalizedTrades.push({
                   id:          positionIdx !== -1 ? (row[positionIdx] || `CSV-${Date.now()}-${i}`) : `CSV-${Date.now()}-${i}`,
                   date:        openDate,
@@ -323,7 +317,6 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
                   emotion:     'calm',
                   pipval:      1,
                   commissions: Math.abs(commission + swap),
-                  pnl_override,
                   notes:       'Imported via CSV.',
                   images:      []
                 })
@@ -367,10 +360,7 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
 
   const saveEdit = () => {
     if (!editingTrade) return
-    // If the user manually edited prices/lots, we should clear the pnl_override
-    // so that the app recalculates P/L based on the new values.
     const updatedTrade = { ...editingTrade }
-    delete updatedTrade.pnl_override
     setParsedTrades(prev => prev.map(t => t.id === updatedTrade.id ? updatedTrade : t))
     setEditingTrade(null)
   }
@@ -386,6 +376,7 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
     
     const newTrades = selectedRows.map(row => ({
       user_id: auth.user.id,
+      strategy_id: strategyId,
       pair: row.pair || 'UNKNOWN',
       dir: row.dir || 'long',
       date: row.date,
@@ -399,7 +390,6 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
       lots: parseFloat(row.lots) || 0.1,
       pipval: parseFloat(row.pipval) || 1, 
       commissions: parseFloat(row.commissions) || 0,
-      pnl_override: row.pnl_override,
       notes: row.notes,
       images: row.images || [],
     }))
@@ -419,7 +409,7 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
       setParsedTrades(prev => prev.filter(t => !selectedIds.has(t.id)))
       setSelectedIds(new Set())
       
-      alert(`Successfully added ${newTrades.length} trades to your journal!`)
+      setSuccessMessage(`Successfully imported ${newTrades.length} trades to your journal!`)
     } catch (err) {
       setError("Failed to add trades: " + err.message)
     } finally {
@@ -631,6 +621,18 @@ export default function MT5SyncTab({ trades, setTrades, auth }) {
                 })}
               </tbody>
             </table>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS MODAL */}
+      {successMessage && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <div style={{ background: 'var(--bg-panel)', width: '100%', maxWidth: '400px', borderRadius: '24px', padding: '32px', border: '1px solid var(--border)', boxShadow: '0 24px 48px rgba(0,0,0,0.2)', textAlign: 'center' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(16,185,129,0.1)', color: 'var(--accent-green)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', margin: '0 auto 20px' }}>✓</div>
+            <h2 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '8px', letterSpacing: '-0.5px' }}>Success!</h2>
+            <p style={{ fontSize: '15px', color: 'var(--text-secondary)', marginBottom: '28px', lineHeight: 1.5 }}>{successMessage}</p>
+            <Btn primary style={{ width: '100%', justifyContent: 'center' }} onClick={() => setSuccessMessage('')}>Awesome</Btn>
           </div>
         </div>
       )}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useAuthStore } from '../../../store/auth/useAuthStore'
 import { supabase } from '../../../utils/supabase'
 
@@ -24,10 +24,12 @@ import { useJournalStats } from './hooks/useJournalStats'
 import { useJournalData } from './hooks/useJournalData'
 import { useJournalChat } from './hooks/useJournalChat'
 import { useJournalSummary } from './hooks/useJournalSummary'
+import { useStrategies } from './hooks/useStrategies'
 import { getTradeResult, calcPnl } from '../../../utils/tradeMetrics'
 
 // ══════════════════════════════════════════════════════════════
 export default function JournalDashboard() {
+  const { strategyId } = useParams()
   const [activeTab, setActiveTab] = useState('Dashboard')
   const navigate = useNavigate()
   const auth = useAuthStore()
@@ -42,7 +44,8 @@ export default function JournalDashboard() {
     localStorage.setItem('mkt_sim_theme', theme)
   }, [theme])
 
-  const { trades, setTrades, tradesLoading } = useJournalData(auth)
+  const { trades, setTrades, tradesLoading } = useJournalData(auth, strategyId)
+  const { strategies } = useStrategies(auth)
 
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState({ ...emptyForm, date: today() })
@@ -78,6 +81,7 @@ export default function JournalDashboard() {
   function openModal(trade = null) {
     if (trade) {
       setForm({
+        strategy_id: trade.strategy_id || strategyId,
         pair: trade.pair,
         dir: trade.dir,
         date: trade.date,
@@ -102,6 +106,7 @@ export default function JournalDashboard() {
       if (lastTrade) {
         setForm({
           ...emptyForm,
+          strategy_id: strategyId,
           pair: lastTrade.pair,
           dir: lastTrade.dir,
           session: lastTrade.session || '',
@@ -118,7 +123,7 @@ export default function JournalDashboard() {
           commissions: lastTrade.commissions ? lastTrade.commissions.toString() : '',
         })
       } else {
-        setForm({ ...emptyForm, date: today() })
+        setForm({ ...emptyForm, date: today(), strategy_id: strategyId })
       }
       setEditingTradeId(null)
     }
@@ -134,6 +139,7 @@ export default function JournalDashboard() {
 
     const newTrade = {
       user_id: auth.user.id,
+      strategy_id: form.strategy_id || strategyId,
       pair: form.pair.toUpperCase().trim(),
       dir: form.dir, date: form.date, session: form.session,
       entry: parseFloat(form.entry),
@@ -154,21 +160,33 @@ export default function JournalDashboard() {
     if (auth.isGuest) {
       savedData = { ...newTrade, id: editingTradeId || `guest-new-${Date.now()}` }
       if (editingTradeId) {
-        setTrades(trades.map(t => t.id === editingTradeId ? savedData : t))
+        if (savedData.strategy_id === strategyId) {
+          setTrades(trades.map(t => t.id === editingTradeId ? savedData : t))
+        } else {
+          setTrades(trades.filter(t => t.id !== editingTradeId))
+        }
       } else {
-        setTrades([...trades, savedData])
+        if (savedData.strategy_id === strategyId) {
+          setTrades([...trades, savedData])
+        }
       }
     } else {
       if (editingTradeId) {
         const { data, error } = await supabase.from('trades').update(newTrade).eq('id', editingTradeId).select().single()
         if (error) return alert('Error updating trade: ' + error.message)
         savedData = data
-        setTrades(trades.map(t => t.id === editingTradeId ? data : t))
+        if (data.strategy_id === strategyId) {
+          setTrades(trades.map(t => t.id === editingTradeId ? data : t))
+        } else {
+          setTrades(trades.filter(t => t.id !== editingTradeId))
+        }
       } else {
         const { data, error } = await supabase.from('trades').insert([newTrade]).select().single()
         if (error) return alert('Error saving trade: ' + error.message)
         savedData = data
-        setTrades([...trades, data])
+        if (data.strategy_id === strategyId) {
+          setTrades([...trades, data])
+        }
       }
     }
 
@@ -216,6 +234,8 @@ export default function JournalDashboard() {
   const hour = new Date().getHours()
   const tod = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
 
+  const currentStrategy = strategies?.find(s => s.id === strategyId)
+
   const galleryTrades = useMemo(() => {
     let list = trades.filter(t => t.images && t.images.length > 0)
     if (galleryResultFilter !== 'All') {
@@ -259,7 +279,10 @@ export default function JournalDashboard() {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <button onClick={() => navigate('/dashboard')} style={{
+          <button onClick={() => {
+            const isPropFirm = currentStrategy?.notes && currentStrategy.notes.includes('"isPropFirm":true');
+            navigate('/tools/journal', { state: { propMode: isPropFirm } })
+          }} style={{
             background: 'var(--bg-base)', border: '1.5px solid var(--border)', borderRadius: '12px', padding: '7px 14px',
             fontSize: '13px', fontWeight: 600, color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
           }}>
@@ -276,12 +299,6 @@ export default function JournalDashboard() {
             background: 'none', border: '1.5px solid var(--border)', color: 'var(--text-secondary)', padding: '6px 14px', borderRadius: '10px',
             fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center',
           }}>💡 How it works</button>
-          <button onClick={() => setPropMode(p => !p)} style={{
-            fontSize: '12px', fontWeight: 600, padding: '7px 16px', borderRadius: '999px', cursor: 'pointer',
-            background: propMode ? 'rgba(245,158,11,0.12)' : 'var(--bg-base)',
-            border: propMode ? '1.5px solid rgba(245,158,11,0.35)' : '1.5px solid var(--border)',
-            color: propMode ? 'var(--accent-yellow)' : 'var(--text-secondary)', transition: 'all .2s',
-          }}>⚡ Prop Firm Mode{propMode ? ': ON' : ''}</button>
           <Btn id="tour-new-trade" primary onClick={() => openModal()}>+ Log Trade</Btn>
         </div>
       </nav>
@@ -310,6 +327,7 @@ export default function JournalDashboard() {
                 onSubmit={submitTrade}
                 onCancel={() => setShowModal(false)}
                 editingTradeId={editingTradeId}
+                strategies={strategies || []}
               />
             ) : (
               <div style={{ display: 'contents' }}>
@@ -319,9 +337,79 @@ export default function JournalDashboard() {
                       <h1 style={{ fontSize: '32px', fontWeight: 800, color: 'var(--text-primary)', letterSpacing: '-1px', marginBottom: '6px' }}>
                         {tod}, <span style={{ color: 'var(--text-primary)' }}>{firstName}</span> 👋
                       </h1>
-                      <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                      <p style={{ fontSize: '15px', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '16px' }}>
                         {open.length} open position{open.length !== 1 ? 's' : ''} &nbsp;·&nbsp; {trades.length} trades logged &nbsp;·&nbsp; Journal overview
                       </p>
+                      
+                      {currentStrategy?.notes && (() => {
+                        const isPropFirm = currentStrategy.notes.includes('"isPropFirm":true')
+                        if (isPropFirm) {
+                          let pData = {}
+                          try { pData = JSON.parse(currentStrategy.notes) } catch(e){}
+                          
+                          const accountSize = parseFloat(pData.accountSize) || 0
+                          const currentBal = accountSize + totalPnl
+                          const targetBal = accountSize + (parseFloat(pData.target) || 0)
+                          
+                          let progress = 0
+                          if (targetBal - accountSize > 0) {
+                            progress = Math.max(0, Math.min(100, ((currentBal - accountSize) / (targetBal - accountSize)) * 100))
+                          }
+
+                          return (
+                            <div style={{ background: 'rgba(245,158,11,0.05)', borderLeft: '4px solid var(--accent-yellow)', padding: '16px 20px', borderRadius: '0 12px 12px 0' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <h4 style={{ margin: 0, fontSize: '15px', color: 'var(--text-primary)', fontWeight: 800 }}>Account Progress</h4>
+                                <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-secondary)', background: 'var(--bg-base)', padding: '4px 10px', borderRadius: '999px', border: '1px solid var(--border)' }}>
+                                  {pData.type === '2-step' ? `Phase ${pData.phase}` : pData.type}
+                                </span>
+                              </div>
+                              
+                              <div style={{ position: 'relative', height: '14px', marginBottom: '16px' }}>
+                                {/* Track */}
+                                <div style={{ position: 'absolute', inset: 0, background: 'var(--bg-base)', borderRadius: '999px', border: '1px solid var(--border)', overflow: 'hidden' }}>
+                                  {/* Fill */}
+                                  <div style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: `${progress}%`, background: 'linear-gradient(90deg, #f59e0b, #fbbf24)', borderRadius: '999px', transition: 'width 0.5s ease-out' }} />
+                                </div>
+                                {/* Moving dot at the tip of the fill */}
+                                <div style={{
+                                  position: 'absolute',
+                                  left: `calc(${progress}% - 8px)`,
+                                  top: '50%',
+                                  transform: 'translateY(-50%)',
+                                  width: '18px',
+                                  height: '18px',
+                                  borderRadius: '50%',
+                                  background: '#f59e0b',
+                                  border: '3px solid var(--bg-panel)',
+                                  boxShadow: '0 0 0 2px #f59e0b, 0 2px 8px rgba(245,158,11,0.5)',
+                                  transition: 'left 0.5s ease-out',
+                                  zIndex: 2
+                                }} />
+                              </div>
+
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', fontWeight: 700 }}>
+                                <span style={{ color: 'var(--text-secondary)' }}>Current: <span style={{ color: currentBal >= accountSize ? 'var(--accent-green)' : 'var(--accent-red)' }}>${currentBal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></span>
+                                <span style={{ color: 'var(--text-primary)' }}>Target: ${targetBal.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                              </div>
+                              {pData.startDate && (
+                                <div style={{ marginTop: '14px', fontSize: '12px', color: 'var(--text-dim)', fontWeight: 600 }}>
+                                  Started: {new Date(pData.startDate).toLocaleDateString()}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        } else {
+                          return (
+                            <div style={{ background: 'rgba(59,130,246,0.05)', borderLeft: '4px solid var(--accent-blue)', padding: '16px 20px', borderRadius: '0 12px 12px 0' }}>
+                              <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', color: 'var(--text-primary)', fontWeight: 800 }}>Strategy Rules & Notes</h4>
+                              <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-secondary)', lineHeight: 1.6, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                                {currentStrategy.notes}
+                              </p>
+                            </div>
+                          )
+                        }
+                      })()}
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '14px', marginBottom: '28px' }}>
@@ -359,9 +447,9 @@ export default function JournalDashboard() {
 
                 {activeTab === 'Trading History' && <TradeHistoryTab trades={trades} setTrades={setTrades} setSelectedTradeDetail={setSelectedTradeDetail} openModal={openModal} handleDeleteClick={handleDeleteClick} setViewingContext={setViewingContext} />}
                 {activeTab === 'Images of your trades' && <TradeGalleryTab galleryTrades={galleryTrades} galleryDateFilter={galleryDateFilter} setGalleryDateFilter={setGalleryDateFilter} galleryResultFilter={galleryResultFilter} setGalleryResultFilter={setGalleryResultFilter} setViewingContext={setViewingContext} />}
-                {activeTab === 'Trading Statistics' && <TradingStatistics trades={trades} tod={tod} firstName={firstName} onTradeClick={(t) => setSelectedTradeDetail(t)} />}
+                {activeTab === 'Trading Statistics' && <TradingStatistics trades={trades} tod={tod} firstName={firstName} onTradeClick={(t) => setSelectedTradeDetail(t)} propFirmBalance={(() => { try { const n = currentStrategy?.notes; if (n && n.includes('"isPropFirm":true')) { const d = JSON.parse(n); const v = parseFloat(d.accountSize); if (!isNaN(v) && v > 0) return v; } } catch(e){} return null })()} />}
                 {activeTab === 'AI Trading Coach' && <AICoachTab chatMessages={chatMessages} chatInput={chatInput} setChatInput={setChatInput} handleSendChat={handleSendChat} isChatLoading={isChatLoading} chatEndRef={chatEndRef} />}
-                {activeTab === 'MT5 Sync' && <MT5SyncTab trades={trades} setTrades={setTrades} auth={auth} />}
+                {activeTab === 'MT5 Sync' && <MT5SyncTab trades={trades} setTrades={setTrades} auth={auth} strategyId={strategyId} />}
               </div>
             )}
           </div>

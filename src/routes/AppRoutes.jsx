@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import LandingPage from '../pages/LandingPage'
 import Dashboard from '../pages/Dashboard'
 import BasicSimulator from '../pages/tools/BasicSimulator'
+import StrategyDashboard from '../pages/tools/journal/StrategyDashboard'
 import JournalDashboard from '../pages/tools/journal/JournalDashboard'
 import AuthConfirm from '../pages/AuthConfirm'
 import PendingApproval from '../pages/PendingApproval'
@@ -16,7 +17,8 @@ export default function AppRoutes() {
             <Route element={<ProtectedRoute />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/tools/basic-simulator" element={<BasicSimulator />} />
-                <Route path="/tools/journal" element={<JournalDashboard />} />
+                <Route path="/tools/journal" element={<StrategyDashboard />} />
+                <Route path="/tools/journal/:strategyId" element={<JournalDashboard />} />
             </Route>
             <Route path="*" element={<Navigate to="/" />} />
         </Routes>

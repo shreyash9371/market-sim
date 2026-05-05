@@ -2,18 +2,20 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../../../../utils/supabase'
 import { getGuestTrades } from '../../../../utils/guestData'
 
-export function useJournalData(auth) {
+export function useJournalData(auth, strategyId) {
   const [trades, setTrades] = useState([])
   const [tradesLoading, setTradesLoading] = useState(true)
 
   useEffect(() => {
-    if (!auth.user) {
+    if (!auth.user || !strategyId) {
       setTradesLoading(false)
       return
     }
 
     if (auth.isGuest) {
-      setTrades(getGuestTrades())
+      const allGuestTrades = getGuestTrades()
+      // In guest mode, we can just pretend all trades belong to the guest strategy
+      setTrades(allGuestTrades.filter(t => t.strategy_id === strategyId || !t.strategy_id))
       setTradesLoading(false)
       return
     }
@@ -22,6 +24,7 @@ export function useJournalData(auth) {
       const { data, error } = await supabase
         .from('trades')
         .select('*')
+        .eq('strategy_id', strategyId)
         .order('created_at', { ascending: true })
 
       if (!error && data) {
@@ -31,7 +34,7 @@ export function useJournalData(auth) {
     }
 
     fetchTrades()
-  }, [auth.user, auth.isGuest])
+  }, [auth.user, auth.isGuest, strategyId])
 
   return { trades, setTrades, tradesLoading }
 }

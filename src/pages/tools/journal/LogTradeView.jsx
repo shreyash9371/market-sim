@@ -21,7 +21,7 @@ function Divider() {
 }
 
 // ── Main Component ────────────────────────────────────────────
-export default function LogTradeView({ form, setForm, onSubmit, onCancel, editingTradeId }) {
+export default function LogTradeView({ form, setForm, onSubmit, onCancel, editingTradeId, strategies = [] }) {
   const theme = document.documentElement.getAttribute('data-theme') || 'light'
   const pair = form.pair || 'EURUSD'
 
@@ -118,7 +118,10 @@ export default function LogTradeView({ form, setForm, onSubmit, onCancel, editin
         {/* Section 1: Trade Identity */}
         <div style={{ marginBottom: '22px' }}>
           <SectionLabel color="var(--accent-blue)" label="Trade Identity" />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '14px' }}>
+            <FGroup label="Strategy">
+              <CustomSelect value={form.strategy_id} onChange={val => setF('strategy_id', val)} placeholder="Strategy" options={strategies.map(s => ({ value: s.id, label: s.name }))} />
+            </FGroup>
             <FGroup id="tour-log-dir" label="Direction">
               <CustomSelect value={form.dir} onChange={val => setF('dir', val)} options={[{ value: 'long', label: '📈 Long' }, { value: 'short', label: '📉 Short' }]} />
             </FGroup>

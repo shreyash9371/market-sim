@@ -5,7 +5,7 @@ import StatVisuals from './components/statistics/StatVisuals'
 import StatCalendarAndHistory from './components/statistics/StatCalendarAndHistory'
 import TraderScoreModal from './components/statistics/TraderScoreModal'
 
-export default function TradingStatistics({ trades, tod, firstName, onTradeClick }) {
+export default function TradingStatistics({ trades, tod, firstName, onTradeClick, propFirmBalance }) {
   const [selectedDate, setSelectedDate] = useState(null)
   const [showScoreInfo, setShowScoreInfo] = useState(false)
   const tradesListRef = useRef(null)
@@ -22,11 +22,20 @@ export default function TradingStatistics({ trades, tod, firstName, onTradeClick
   }, [])
 
   const [initialBalance, setInitialBalance] = useState(() => {
+    if (propFirmBalance != null) return propFirmBalance
     if (sessionStorage.getItem('guest_mode') === 'true') return 10000;
     return parseFloat(localStorage.getItem('mkt_sim_initial_balance')) || 10000
   })
   const [isEditingBalance, setIsEditingBalance] = useState(false)
   const [tempBalance, setTempBalance] = useState(initialBalance)
+
+  // When propFirmBalance changes (e.g. user edits the account), sync it
+  useEffect(() => {
+    if (propFirmBalance != null) {
+      setInitialBalance(propFirmBalance)
+      setTempBalance(propFirmBalance)
+    }
+  }, [propFirmBalance])
 
   function saveBalance() {
     const val = parseFloat(tempBalance)
@@ -87,6 +96,7 @@ export default function TradingStatistics({ trades, tod, firstName, onTradeClick
         isFilterOpen={isFilterOpen}
         setActiveFilter={setActiveFilter}
         setCustomRange={setCustomRange}
+        isPropFirm={propFirmBalance != null}
       />
 
       <StatVisuals 
