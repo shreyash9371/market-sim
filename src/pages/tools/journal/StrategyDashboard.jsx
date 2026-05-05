@@ -20,20 +20,11 @@ export default function StrategyDashboard() {
   const [stratToDelete, setStratToDelete] = useState(null)
   const [allTrades, setAllTrades] = useState([])
   const [propMode, setPropMode] = useState(() => localStorage.getItem('mkt_sim_prop_mode') === 'true')
-  const [showHyperspace, setShowHyperspace] = useState(false)
 
   const togglePropMode = () => {
-    if (!propMode) {
-      setShowHyperspace(true)
-      setTimeout(() => {
-        setPropMode(true)
-        localStorage.setItem('mkt_sim_prop_mode', 'true')
-        setShowHyperspace(false)
-      }, 2500)
-    } else {
-      setPropMode(false)
-      localStorage.setItem('mkt_sim_prop_mode', 'false')
-    }
+    const next = !propMode
+    setPropMode(next)
+    localStorage.setItem('mkt_sim_prop_mode', next ? 'true' : 'false')
   }
 
   const isPropFirm = (strat) => strat.notes && strat.notes.includes('"isPropFirm":true')
@@ -162,45 +153,6 @@ export default function StrategyDashboard() {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-base)', fontFamily: 'var(--font-sans)', paddingTop: '64px' }}>
-      
-      {showHyperspace && (
-        <div style={{ position: 'fixed', inset: 0, background: 'black', zIndex: 99999, overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <style>{`
-            .star { position: absolute; background: white; border-radius: 50%; animation: hyperspace 2.5s ease-in forwards; }
-            @keyframes hyperspace {
-              0% { transform: translate(0,0) scale(1); opacity: 0; box-shadow: 0 0 0px white; }
-              20% { opacity: 1; }
-              100% { transform: translate(var(--tx), var(--ty)) scale(20); opacity: 0; box-shadow: 0 0 20px white; }
-            }
-            .warp-text {
-              color: #F59E0B; font-size: 56px; font-weight: 900; font-style: italic; letter-spacing: 6px;
-              text-shadow: 0 0 30px rgba(245,158,11,1); z-index: 10; animation: shake 0.1s infinite; text-align: center;
-            }
-            @keyframes shake {
-              0% { transform: translate(2px, 1px) rotate(0deg); }
-              10% { transform: translate(-1px, -2px) rotate(-1deg); }
-              20% { transform: translate(-3px, 0px) rotate(1deg); }
-              30% { transform: translate(0px, 2px) rotate(0deg); }
-              40% { transform: translate(1px, -1px) rotate(1deg); }
-              50% { transform: translate(-1px, 2px) rotate(-1deg); }
-              60% { transform: translate(-3px, 1px) rotate(0deg); }
-              70% { transform: translate(2px, 1px) rotate(-1deg); }
-              80% { transform: translate(-1px, -1px) rotate(1deg); }
-              90% { transform: translate(2px, 2px) rotate(0deg); }
-              100% { transform: translate(1px, -2px) rotate(-1deg); }
-            }
-          `}</style>
-          {Array.from({ length: 200 }).map((_, i) => {
-            const angle = Math.random() * Math.PI * 2;
-            const dist = Math.random() * 100 + 20;
-            const tx = Math.cos(angle) * dist * 10 + 'px';
-            const ty = Math.sin(angle) * dist * 10 + 'px';
-            const delay = Math.random() * 0.5 + 's';
-            return <div key={i} className="star" style={{ width: Math.random()*3+'px', height: Math.random()*3+'px', '--tx': tx, '--ty': ty, animationDelay: delay }} />
-          })}
-          <div className="warp-text">ENTERING PROP FIRM MODE</div>
-        </div>
-      )}
 
       {/* NAVBAR */}
       <nav style={{
