@@ -19,6 +19,7 @@ import TradeGalleryTab from '../journal/components/TradeGalleryTab'
 import JournalModals from '../journal/components/JournalModals'
 import JournalSidebar from '../journal/components/JournalSidebar'
 import MT5SyncTab from '../journal/components/MT5SyncTab'
+import ExportTradesModal from '../journal/components/ExportTradesModal'
 
 import { useJournalStats } from './hooks/useJournalStats'
 import { useJournalData } from './hooks/useJournalData'
@@ -48,6 +49,7 @@ export default function JournalDashboard() {
   const { strategies } = useStrategies(auth)
 
   const [showModal, setShowModal] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
   const [form, setForm] = useState({ ...emptyForm, date: today() })
   const [propMode, setPropMode] = useState(false)
   const [tradeToDelete, setTradeToDelete] = useState(null)
@@ -299,6 +301,24 @@ export default function JournalDashboard() {
             background: 'none', border: '1.5px solid var(--border)', color: 'var(--text-secondary)', padding: '6px 14px', borderRadius: '10px',
             fontSize: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center',
           }}>💡 How it works</button>
+          <button
+            onClick={() => setShowExportModal(true)}
+            onMouseEnter={e => { e.currentTarget.style.opacity='0.88'; e.currentTarget.style.transform='translateY(-1px)' }}
+            onMouseLeave={e => { e.currentTarget.style.opacity='1';    e.currentTarget.style.transform='translateY(0)' }}
+            style={{
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              border: 'none', color: '#fff', padding: '7px 16px', borderRadius: '10px',
+              fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px',
+              boxShadow: '0 2px 8px rgba(16,185,129,0.35)',
+              transition: 'opacity .15s, transform .15s',
+            }}>
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+              <path d="M6.5 1v7.5M4 6l2.5 2.5L9 6" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M1.5 11h10" stroke="white" strokeWidth="1.8" strokeLinecap="round"/>
+            </svg>
+            Export Trades
+          </button>
           <Btn id="tour-new-trade" primary onClick={() => openModal()}>+ Log Trade</Btn>
         </div>
       </nav>
@@ -482,6 +502,14 @@ export default function JournalDashboard() {
         setShowSuccessModal={setShowSuccessModal} successQuote={successQuote}
         lastLoggedTrade={lastLoggedTrade} openModal={openModal}
       />
+
+      {showExportModal && (
+        <ExportTradesModal
+          trades={trades}
+          firstName={firstName}
+          onClose={() => setShowExportModal(false)}
+        />
+      )}
     </div>
   )
 }
