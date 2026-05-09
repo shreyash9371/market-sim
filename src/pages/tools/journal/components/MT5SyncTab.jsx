@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import Papa from 'papaparse'
+import * as XLSX from 'xlsx'
 import { supabase } from '../../../../utils/supabase'
 import { Btn } from '../../../../components/ui/BaseComponents'
 import LogTradeView from '../LogTradeView'
@@ -15,13 +16,187 @@ export default function MT5SyncTab({ trades, setTrades, auth, strategyId }) {
 
   // Edit Mode State (uses LogTradeView format)
   const [editingTrade, setEditingTrade] = useState(null)
-  
+
+  const processCSV = (fileOrText) => {
+    Papa.parse(fileOrText, {
+      header: false,
+      skipEmptyLines: false,
+      complete: (results) => {
+        const rows = results.data
+
+        const parseDateTime = (raw = '') => {
+          if (!raw) return { dateStr: new Date().toISOString().split('T')[0], timeStr: '12:00' }
+          const cleaned = raw.trim().replace(/^(\d{4})\.(\d{2})\.(\d{2})/, '$1-$2-$3')
+          const d = new Date(cleaned)
+          if (isNaN(d.getTime())) return { dateStr: new Date().toISOString().split('T')[0], timeStr: '12:00' }
+          return {
+            dateStr: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
+            timeStr: `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+          }
+        }
+
+        const cleanNum = (val) => {
+          if (!val) return ''
+          return String(val).replace(/\s/g, '').replace(/,/g, '')
+        }
+
+        let posHeaderRowIdx = -1
+        for (let i = 0; i < rows.length; i++) {
+          const first = (rows[i][0] || '').trim().toLowerCase()
+          if (first === 'positions') {
+            posHeaderRowIdx = i + 1
+            break
+          }
+        }
+
+        let normalizedTrades = []
+
+        if (posHeaderRowIdx !== -1 && posHeaderRowIdx < rows.length) {
+          const headers = rows[posHeaderRowIdx].map(h => (h || '').trim().toLowerCase())
+          const timeIndices    = headers.reduce((a, h, i) => h === 'time'    ? [...a, i] : a, [])
+          const priceIndices   = headers.reduce((a, h, i) => h === 'price'   ? [...a, i] : a, [])
+          const typeIdx        = headers.indexOf('type')
+          const symbolIdx      = headers.indexOf('symbol')
+          const positionIdx    = headers.indexOf('position')
+          const volumeIdx      = headers.indexOf('volume')
+          const slIdx          = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'sl')
+          const tpIdx          = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'tp')
+          const commissionIdx  = headers.indexOf('commission')
+          const swapIdx        = headers.indexOf('swap')
+          const profitIdx      = headers.lastIndexOf('profit')
+
+          const openTimeIdx   = timeIndices[0]  ?? -1
+          const closeTimeIdx  = timeIndices[1]  ?? -1
+          const entryPriceIdx = priceIndices[0] ?? -1
+          const exitPriceIdx  = priceIndices[1] ?? -1
+
+          const STOP_LABELS = ['orders', 'deals', 'balance']
+
+          for (let i = posHeaderRowIdx + 1; i < rows.length; i++) {
+            const row = rows[i]
+            const firstCell = (row[0] || '').trim().toLowerCase()
+            if (STOP_LABELS.includes(firstCell)) break
+            if (row.every(c => !c || !c.trim())) continue
+
+            const typeStr = typeIdx !== -1 ? (row[typeIdx] || '').trim().toLowerCase() : ''
+            const isBuy  = typeStr === 'buy'  || typeStr === 'buy stop'  || typeStr === 'buy limit'
+            const isSell = typeStr === 'sell' || typeStr === 'sell stop' || typeStr === 'sell limit'
+            if (!isBuy && !isSell) continue
+
+            const { dateStr: openDate, timeStr: openTime }   = parseDateTime(openTimeIdx  !== -1 ? row[openTimeIdx]  : '')
+            const { dateStr: closeDate, timeStr: closeTime } = parseDateTime(closeTimeIdx !== -1 ? row[closeTimeIdx] : '')
+            const commission   = parseFloat(cleanNum(row[commissionIdx]) || 0)
+            const swap         = parseFloat(cleanNum(row[swapIdx])       || 0)
+
+            normalizedTrades.push({
+              id:          positionIdx !== -1 ? (row[positionIdx] || `CSV-${Date.now()}-${i}`) : `CSV-${Date.now()}-${i}`,
+              date:        openDate,
+              entryTime:   openTime,
+              exit_date:   closeDate,
+              exitTime:    closeTime,
+              pair:        symbolIdx !== -1 ? (row[symbolIdx] || '').trim().toUpperCase() : '',
+              dir:         isBuy ? 'long' : 'short',
+              lots:        volumeIdx !== -1 ? (cleanNum(row[volumeIdx]) || '0') : '0',
+              entry:       entryPriceIdx !== -1 ? cleanNum(row[entryPriceIdx]) : '',
+              exit:        exitPriceIdx  !== -1 ? cleanNum(row[exitPriceIdx])  : '',
+              sl:          slIdx !== -1 ? cleanNum(row[slIdx]) : '',
+              tp:          tpIdx !== -1 ? cleanNum(row[tpIdx]) : '',
+              session:     'New York',
+              emotion:     'calm',
+              pipval:      1,
+              commissions: Math.abs(commission + swap),
+              notes:       'Imported via CSV/Excel (Positions).',
+              images:      []
+            })
+          }
+        }
+
+        if (normalizedTrades.length === 0) {
+          let headerIdx = -1
+          for (let i = 0; i < Math.min(rows.length, 20); i++) {
+            const hasType   = rows[i].some(c => (c||'').trim().toLowerCase() === 'type')
+            const hasSymbol = rows[i].some(c => (c||'').trim().toLowerCase() === 'symbol')
+            if (hasType && hasSymbol) { headerIdx = i; break }
+          }
+
+          if (headerIdx !== -1) {
+            const headers = rows[headerIdx].map(h => (h||'').trim().toLowerCase())
+            const SKIP_TYPES = ['balance','credit','deposit','withdrawal','correction','bonus']
+            const timeIndices  = headers.reduce((a, h, i) => h === 'time'  ? [...a, i] : a, [])
+            const priceIndices = headers.reduce((a, h, i) => h === 'price' ? [...a, i] : a, [])
+
+            for (let i = headerIdx + 1; i < rows.length; i++) {
+              const row = rows[i]
+              if (row.every(c => !c || !c.trim())) continue
+
+              const typeIdx = headers.findIndex(h => h === 'type')
+              const typeStr = typeIdx !== -1 ? (row[typeIdx]||'').trim().toLowerCase() : ''
+              if (SKIP_TYPES.includes(typeStr) || !typeStr) continue
+              const isBuy  = typeStr.includes('buy')
+              const isSell = typeStr.includes('sell')
+              if (!isBuy && !isSell) continue
+
+              const openTimeIdx   = timeIndices[0]  ?? -1
+              const closeTimeIdx  = timeIndices[1]  ?? -1
+              const entryPriceIdx = priceIndices[0] ?? -1
+              const exitPriceIdx  = priceIndices[1] ?? -1
+              const { dateStr: openDate, timeStr: openTime }   = parseDateTime(openTimeIdx  !== -1 ? row[openTimeIdx]  : '')
+              const { dateStr: closeDate, timeStr: closeTime } = parseDateTime(closeTimeIdx !== -1 ? row[closeTimeIdx] : '')
+              const symbolIdx     = headers.indexOf('symbol')
+              const positionIdx   = ['position','ticket','deal','order'].map(k => headers.indexOf(k)).find(x => x !== -1) ?? -1
+              const volumeIdx     = headers.findIndex(h => h === 'volume' || h === 'size' || h === 'lots')
+              const slIdx         = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'sl')
+              const tpIdx         = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'tp')
+              const commIdx       = headers.indexOf('commission')
+              const swapIdx       = headers.indexOf('swap')
+              const commission    = parseFloat(cleanNum(row[commIdx])  || 0)
+              const swap          = parseFloat(cleanNum(row[swapIdx])  || 0)
+
+              normalizedTrades.push({
+                id:          positionIdx !== -1 ? (row[positionIdx] || `CSV-${Date.now()}-${i}`) : `CSV-${Date.now()}-${i}`,
+                date:        openDate,
+                entryTime:   openTime,
+                exit_date:   closeDate,
+                exitTime:    closeTime,
+                pair:        symbolIdx !== -1 ? (row[symbolIdx]||'').trim().toUpperCase() : '',
+                dir:         isBuy ? 'long' : 'short',
+                lots:        volumeIdx !== -1 ? (cleanNum(row[volumeIdx])||'0') : '0',
+                entry:       entryPriceIdx !== -1 ? cleanNum(row[entryPriceIdx]) : '',
+                exit:       exitPriceIdx  !== -1 ? cleanNum(row[exitPriceIdx])  : '',
+                sl:          slIdx !== -1 ? cleanNum(row[slIdx]) : '',
+                tp:          tpIdx !== -1 ? cleanNum(row[tpIdx]) : '',
+                session:     'New York',
+                emotion:     'calm',
+                pipval:      1,
+                commissions: Math.abs(commission + swap),
+                notes:       'Imported via CSV/Excel.',
+                images:      []
+              })
+            }
+          }
+        }
+
+        if (normalizedTrades.length === 0) {
+          setError('No valid trades (Buy/Sell) found in the file. Please check the format.')
+        } else {
+          setParsedTrades(normalizedTrades)
+          setSelectedIds(new Set(normalizedTrades.map(t => t.id)))
+        }
+      },
+      error: (err) => {
+        setError(err.message)
+      }
+    })
+  }
+
   const handleFileUpload = (e) => {
     const file = e.target.files[0]
     if (!file) return
     setError('')
     
-    const isHtml = file.name.toLowerCase().endsWith('.html') || file.name.toLowerCase().endsWith('.htm')
+    const fileName = file.name.toLowerCase()
+    const isHtml = fileName.endsWith('.html') || fileName.endsWith('.htm')
+    const isExcel = fileName.endsWith('.xlsx') || fileName.endsWith('.xls')
 
     if (isHtml) {
       const reader = new FileReader()
@@ -147,194 +322,23 @@ export default function MT5SyncTab({ trades, setTrades, auth, strategyId }) {
         }
       }
       reader.readAsText(file)
-    } else {
-      // Read raw (no header) so we can handle MT5's multi-section report format
-      Papa.parse(file, {
-        header: false,
-        skipEmptyLines: false,
-        complete: (results) => {
-          const rows = results.data  // array of string arrays
-
-          // ── Helper: parse an MT5 datetime string ──────────────────
-          const parseDateTime = (raw = '') => {
-            if (!raw) return { dateStr: new Date().toISOString().split('T')[0], timeStr: '12:00' }
-            // MT5 format: "2026.04.28 16:00:00" — replace dots in date part only
-            const cleaned = raw.trim().replace(/^(\d{4})\.(\d{2})\.(\d{2})/, '$1-$2-$3')
-            const d = new Date(cleaned)
-            if (isNaN(d.getTime())) return { dateStr: new Date().toISOString().split('T')[0], timeStr: '12:00' }
-            return {
-              dateStr: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,
-              timeStr: `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
-            }
-          }
-
-          // ── Helper: Clean numeric strings (remove spaces/commas) ──
-          const cleanNum = (val) => {
-            if (!val) return ''
-            return String(val).replace(/\s/g, '').replace(/,/g, '')
-          }
-
-          // ── Try to find the "Positions" section ───────────────────
-          // MT5 Report CSV structure:
-          //   Row 0: "Trade History Report"
-          //   Rows 1-4: metadata
-          //   Row 5: blank
-          //   Row 6: "Positions"   ← section label (col A)
-          //   Row 7: column headers: Time, Position, Symbol, Type, Volume, Price, S/L, T/P, Time, Price, Commission, Swap, Profit
-          //   Rows 8+: trade data  (until blank or "Orders" / "Deals")
-
-          let posHeaderRowIdx = -1
-          for (let i = 0; i < rows.length; i++) {
-            const first = (rows[i][0] || '').trim().toLowerCase()
-            if (first === 'positions') {
-              posHeaderRowIdx = i + 1  // the next row is the column header row
-              break
-            }
-          }
-
-          let normalizedTrades = []
-
-          if (posHeaderRowIdx !== -1 && posHeaderRowIdx < rows.length) {
-            // Map column names from the Positions header row
-            const headers = rows[posHeaderRowIdx].map(h => (h || '').trim().toLowerCase())
-            // Headers: time, position, symbol, type, volume, price, s/l, t/p, time, price, commission, swap, profit
-            // There are two "time" and two "price" columns — find indices manually
-            const timeIndices    = headers.reduce((a, h, i) => h === 'time'    ? [...a, i] : a, [])
-            const priceIndices   = headers.reduce((a, h, i) => h === 'price'   ? [...a, i] : a, [])
-            const typeIdx        = headers.indexOf('type')
-            const symbolIdx      = headers.indexOf('symbol')
-            const positionIdx    = headers.indexOf('position')
-            const volumeIdx      = headers.indexOf('volume')
-            const slIdx          = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'sl')
-            const tpIdx          = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'tp')
-            const commissionIdx  = headers.indexOf('commission')
-            const swapIdx        = headers.indexOf('swap')
-            const profitIdx      = headers.lastIndexOf('profit')
-
-            const openTimeIdx   = timeIndices[0]  ?? -1
-            const closeTimeIdx  = timeIndices[1]  ?? -1
-            const entryPriceIdx = priceIndices[0] ?? -1
-            const exitPriceIdx  = priceIndices[1] ?? -1
-
-            const STOP_LABELS = ['orders', 'deals', 'balance']
-
-            for (let i = posHeaderRowIdx + 1; i < rows.length; i++) {
-              const row = rows[i]
-              const firstCell = (row[0] || '').trim().toLowerCase()
-              if (STOP_LABELS.includes(firstCell)) break
-              if (row.every(c => !c || !c.trim())) continue
-
-              const typeStr = typeIdx !== -1 ? (row[typeIdx] || '').trim().toLowerCase() : ''
-              const isBuy  = typeStr === 'buy'  || typeStr === 'buy stop'  || typeStr === 'buy limit'
-              const isSell = typeStr === 'sell' || typeStr === 'sell stop' || typeStr === 'sell limit'
-              if (!isBuy && !isSell) continue
-
-              const { dateStr: openDate, timeStr: openTime }   = parseDateTime(openTimeIdx  !== -1 ? row[openTimeIdx]  : '')
-              const { dateStr: closeDate, timeStr: closeTime } = parseDateTime(closeTimeIdx !== -1 ? row[closeTimeIdx] : '')
-              const commission   = parseFloat(cleanNum(row[commissionIdx]) || 0)
-              const swap         = parseFloat(cleanNum(row[swapIdx])       || 0)
-
-              normalizedTrades.push({
-                id:          positionIdx !== -1 ? (row[positionIdx] || `CSV-${Date.now()}-${i}`) : `CSV-${Date.now()}-${i}`,
-                date:        openDate,
-                entryTime:   openTime,
-                exit_date:   closeDate,
-                exitTime:    closeTime,
-                pair:        symbolIdx !== -1 ? (row[symbolIdx] || '').trim().toUpperCase() : '',
-                dir:         isBuy ? 'long' : 'short',
-                lots:        volumeIdx !== -1 ? (cleanNum(row[volumeIdx]) || '0') : '0',
-                entry:       entryPriceIdx !== -1 ? cleanNum(row[entryPriceIdx]) : '',
-                exit:        exitPriceIdx  !== -1 ? cleanNum(row[exitPriceIdx])  : '',
-                sl:          slIdx !== -1 ? cleanNum(row[slIdx]) : '',
-                tp:          tpIdx !== -1 ? cleanNum(row[tpIdx]) : '',
-                session:     'New York',
-                emotion:     'calm',
-                pipval:      1,
-                commissions: Math.abs(commission + swap),
-                notes:       'Imported via CSV (Positions).',
-                images:      []
-              })
-            }
-          }
-
-          // ── Fallback: generic column-name scan (for plain MT5 CSVs) ──
-          if (normalizedTrades.length === 0) {
-            // Find the first row that looks like a header containing "type"
-            let headerIdx = -1
-            for (let i = 0; i < Math.min(rows.length, 20); i++) {
-              const hasType   = rows[i].some(c => (c||'').trim().toLowerCase() === 'type')
-              const hasSymbol = rows[i].some(c => (c||'').trim().toLowerCase() === 'symbol')
-              if (hasType && hasSymbol) { headerIdx = i; break }
-            }
-
-            if (headerIdx !== -1) {
-              const headers = rows[headerIdx].map(h => (h||'').trim().toLowerCase())
-              const SKIP_TYPES = ['balance','credit','deposit','withdrawal','correction','bonus']
-              const timeIndices  = headers.reduce((a, h, i) => h === 'time'  ? [...a, i] : a, [])
-              const priceIndices = headers.reduce((a, h, i) => h === 'price' ? [...a, i] : a, [])
-
-              for (let i = headerIdx + 1; i < rows.length; i++) {
-                const row = rows[i]
-                if (row.every(c => !c || !c.trim())) continue
-
-                const typeIdx = headers.findIndex(h => h === 'type')
-                const typeStr = typeIdx !== -1 ? (row[typeIdx]||'').trim().toLowerCase() : ''
-                if (SKIP_TYPES.includes(typeStr) || !typeStr) continue
-                const isBuy  = typeStr.includes('buy')
-                const isSell = typeStr.includes('sell')
-                if (!isBuy && !isSell) continue
-
-                const openTimeIdx   = timeIndices[0]  ?? -1
-                const closeTimeIdx  = timeIndices[1]  ?? -1
-                const entryPriceIdx = priceIndices[0] ?? -1
-                const exitPriceIdx  = priceIndices[1] ?? -1
-                const { dateStr: openDate, timeStr: openTime }   = parseDateTime(openTimeIdx  !== -1 ? row[openTimeIdx]  : '')
-                const { dateStr: closeDate, timeStr: closeTime } = parseDateTime(closeTimeIdx !== -1 ? row[closeTimeIdx] : '')
-                const symbolIdx     = headers.indexOf('symbol')
-                const positionIdx   = ['position','ticket','deal','order'].map(k => headers.indexOf(k)).find(x => x !== -1) ?? -1
-                const volumeIdx     = headers.findIndex(h => h === 'volume' || h === 'size' || h === 'lots')
-                const slIdx         = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'sl')
-                const tpIdx         = headers.findIndex(h => h.replace(/[\s\/]/g, '') === 'tp')
-                const commIdx       = headers.indexOf('commission')
-                const swapIdx       = headers.indexOf('swap')
-                const commission    = parseFloat(cleanNum(row[commIdx])  || 0)
-                const swap          = parseFloat(cleanNum(row[swapIdx])  || 0)
-
-                normalizedTrades.push({
-                  id:          positionIdx !== -1 ? (row[positionIdx] || `CSV-${Date.now()}-${i}`) : `CSV-${Date.now()}-${i}`,
-                  date:        openDate,
-                  entryTime:   openTime,
-                  exit_date:   closeDate,
-                  exitTime:    closeTime,
-                  pair:        symbolIdx !== -1 ? (row[symbolIdx]||'').trim().toUpperCase() : '',
-                  dir:         isBuy ? 'long' : 'short',
-                  lots:        volumeIdx !== -1 ? (cleanNum(row[volumeIdx])||'0') : '0',
-                  entry:       entryPriceIdx !== -1 ? cleanNum(row[entryPriceIdx]) : '',
-                  exit:       exitPriceIdx  !== -1 ? cleanNum(row[exitPriceIdx])  : '',
-                  sl:          slIdx !== -1 ? cleanNum(row[slIdx]) : '',
-                  tp:          tpIdx !== -1 ? cleanNum(row[tpIdx]) : '',
-                  session:     'New York',
-                  emotion:     'calm',
-                  pipval:      1,
-                  commissions: Math.abs(commission + swap),
-                  notes:       'Imported via CSV.',
-                  images:      []
-                })
-              }
-            }
-          }
-
-          if (normalizedTrades.length === 0) {
-            setError('No valid trades (Buy/Sell) found in the CSV. Please check the file format.')
-          } else {
-            setParsedTrades(normalizedTrades)
-            setSelectedIds(new Set(normalizedTrades.map(t => t.id)))
-          }
-        },
-        error: (err) => {
-          setError(err.message)
+    } else if (isExcel) {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        try {
+          const data = new Uint8Array(event.target.result)
+          const workbook = XLSX.read(data, { type: 'array' })
+          const firstSheetName = workbook.SheetNames[0]
+          const worksheet = workbook.Sheets[firstSheetName]
+          const csvText = XLSX.utils.sheet_to_csv(worksheet)
+          processCSV(csvText)
+        } catch (err) {
+          setError('Failed to parse Excel file: ' + err.message)
         }
-      })
+      }
+      reader.readAsArrayBuffer(file)
+    } else {
+      processCSV(file)
     }
   }
 
@@ -459,9 +463,9 @@ export default function MT5SyncTab({ trades, setTrades, auth, strategyId }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       
       <div style={{ background: 'var(--bg-panel)', borderRadius: '20px', border: '1px solid var(--border)', padding: '24px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>Import MT5 Trades (CSV)</h2>
+        <h2 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-primary)', margin: '0 0 8px' }}>Import MT5 Trades (CSV / Excel)</h2>
         <p style={{ color: 'var(--text-secondary)', fontSize: '13px', margin: '0 0 24px', maxWidth: '600px' }}>
-          Instantly add historical trades to your journal by uploading an MT5 HTML report or CSV file.
+          Instantly add historical trades to your journal by uploading an MT5 HTML report, CSV, or Excel file.
         </p>
 
         <div style={{ background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '12px', padding: '16px', marginBottom: '24px' }}>
@@ -479,13 +483,13 @@ export default function MT5SyncTab({ trades, setTrades, auth, strategyId }) {
         <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
           <input 
             type="file" 
-            accept=".csv,.html,.htm"
+            accept=".csv,.html,.htm,.xlsx,.xls"
             ref={fileInputRef}
             onChange={handleFileUpload}
             style={{ display: 'none' }}
           />
           <Btn primary onClick={() => fileInputRef.current?.click()} style={{ padding: '10px 24px' }}>
-            <span style={{ marginRight: '8px' }}>📄</span> Upload CSV / HTML
+            <span style={{ marginRight: '8px' }}>📄</span> Upload File
           </Btn>
           
           {parsedTrades.length > 0 && (
