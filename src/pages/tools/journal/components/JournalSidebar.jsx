@@ -32,7 +32,7 @@ export default function JournalSidebar({ activeTab, setActiveTab, setSelectedTra
           <SidebarItem label="Images of your trades" active={activeTab === 'Images of your trades' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('Images of your trades'); setSelectedTradeDetail(null); setShowModal(false); }} />
         </div>
         <div id="tour-mt5-sync">
-          <SidebarItem label="Import MT5 CSV" active={activeTab === 'MT5 Sync' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('MT5 Sync'); setSelectedTradeDetail(null); setShowModal(false); }} />
+          <SidebarItem label="Import MT5 (CSV/Excel)" active={activeTab === 'MT5 Sync' && !showModal && !selectedTradeDetail} onClick={() => { setActiveTab('MT5 Sync'); setSelectedTradeDetail(null); setShowModal(false); }} />
         </div>
       </div>
 
